@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { setSoundEnabled, soundEnabled } from "@/lib/audio/cut-sound";
 import type { SelectedFrame } from "@/lib/db/types";
 import { FRAMES, FRAME_IDS } from "@/lib/frames/spec";
 import { frameCss } from "@/lib/frames/style";
@@ -32,6 +33,9 @@ export function CalendarMenu({
   onSetFrame: (frame: SelectedFrame) => void;
 }) {
   const [signingOut, setSigningOut] = useState(false);
+  // The cut-sound pref is per-device (localStorage, not synced). Read lazily on the client — the
+  // menu only ever renders behind a user tap, so there is no SSR/hydration read.
+  const [soundOn, setSoundOn] = useState(() => soundEnabled());
 
   if (!open) return null;
 
@@ -111,6 +115,24 @@ export function CalendarMenu({
             ))}
           </div>
         </div>
+
+        <Divider />
+
+        {/* The cut sound's deterministic control (US-14, decision 5): the in-app guarantee, since
+            the web can't read the iOS silent switch. Per-device, so it stays open on toggle — she
+            flips it and stays put, no menu re-open. */}
+        <MenuButton
+          onClick={() => {
+            const next = !soundOn;
+            setSoundEnabled(next);
+            setSoundOn(next);
+          }}
+        >
+          <span className="flex items-center justify-between">
+            Cut sound
+            <span className={soundOn ? "text-ink" : "text-muted"}>{soundOn ? "On" : "Off"}</span>
+          </span>
+        </MenuButton>
 
         <Divider />
 
