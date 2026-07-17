@@ -54,6 +54,46 @@ type MonthStamps = {
 const EMPTY_MONTH: MonthStamps = { byDate: new Map(), aspects: new Map() };
 
 /**
+ * The pure month loader — one month's live stamps by date + their baked aspects. Extracted from
+ * the `useMonthData` hook so the M10 long-run harness can drive the **real** read path (not a
+ * copy) with no React runtime; the hook is a thin `useLiveQuery` wrapper around it.
+ */
+export async function loadMonthStamps(year: number, month: number): Promise<MonthStamps> {
+  const { start, endExclusive } = monthRange(year, month);
+
+  const entries = await db.entries
+    .where("entry_date")
+    .between(start, endExclusive, true, false)
+    .toArray();
+  if (entries.length === 0) return EMPTY_MONTH;
+
+  const dateByEntryId = new Map(entries.map((e) => [e.id, e.entry_date]));
+  const stamps = await db.stamps
+    .where("entry_id")
+    .anyOf([...dateByEntryId.keys()])
+    .toArray();
+
+  const byEntry = new Map<string, Stamp[]>();
+  for (const s of stamps) {
+    const list = byEntry.get(s.entry_id);
+    if (list) list.push(s);
+    else byEntry.set(s.entry_id, [s]);
+  }
+
+  const byDate = new Map<string, Stamp[]>();
+  for (const [entryId, list] of byEntry) {
+    const date = dateByEntryId.get(entryId);
+    const live = orderStamps(list);
+    if (date && live.length > 0) byDate.set(date, live);
+  }
+
+  const aspects = await imageAspects(
+    [...new Set([...byDate.values()].flat().map((s) => s.image_id))],
+  );
+  return { byDate, aspects };
+}
+
+/**
  * Reactive read of one month's day content, keyed by `YYYY-MM-DD`. Range-scans `entries` for
  * the month, collects each day's live stamps, and batch-resolves every stamp image's thumb in a
  * single `getThumbUrls` round-trip (≤ 3 × 31 ids — still one call, still 256px thumbs). Every
@@ -61,42 +101,9 @@ const EMPTY_MONTH: MonthStamps = { byDate: new Map(), aspects: new Map() };
  * fix).
  */
 export function useMonthData(year: number, month: number): Map<string, DayData> {
-  const { start, endExclusive } = monthRange(year, month);
-
   const monthStamps = useLiveQuery(
-    async (): Promise<MonthStamps> => {
-      const entries = await db.entries
-        .where("entry_date")
-        .between(start, endExclusive, true, false)
-        .toArray();
-      if (entries.length === 0) return EMPTY_MONTH;
-
-      const dateByEntryId = new Map(entries.map((e) => [e.id, e.entry_date]));
-      const stamps = await db.stamps
-        .where("entry_id")
-        .anyOf([...dateByEntryId.keys()])
-        .toArray();
-
-      const byEntry = new Map<string, Stamp[]>();
-      for (const s of stamps) {
-        const list = byEntry.get(s.entry_id);
-        if (list) list.push(s);
-        else byEntry.set(s.entry_id, [s]);
-      }
-
-      const byDate = new Map<string, Stamp[]>();
-      for (const [entryId, list] of byEntry) {
-        const date = dateByEntryId.get(entryId);
-        const live = orderStamps(list);
-        if (date && live.length > 0) byDate.set(date, live);
-      }
-
-      const aspects = await imageAspects(
-        [...new Set([...byDate.values()].flat().map((s) => s.image_id))],
-      );
-      return { byDate, aspects };
-    },
-    [start, endExclusive],
+    () => loadMonthStamps(year, month),
+    [year, month],
     EMPTY_MONTH,
   );
 
@@ -129,28 +136,30 @@ export type DayView = {
 const EMPTY_DAY: DayView = { stamps: [], urls: new Map(), aspects: new Map() };
 
 /**
+ * The pure day loader — one day's live stamps + their baked aspects (no URLs; the hook resolves
+ * closeups). Extracted from `useDayView` so the M10 long-run harness drives the real read path.
+ */
+export async function loadDayStamps(date: string | null): Promise<DayView> {
+  if (!date) return EMPTY_DAY;
+  const entry = await db.entries.where("entry_date").equals(date).first();
+  if (!entry) return EMPTY_DAY;
+
+  const stamps = orderStamps(
+    await db.stamps.where("entry_id").equals(entry.id).toArray(),
+  );
+  if (stamps.length === 0) return EMPTY_DAY;
+
+  const aspects = await imageAspects([...new Set(stamps.map((s) => s.image_id))]);
+  return { stamps, urls: new Map(), aspects };
+}
+
+/**
  * Reactive read of the open day page. Resolves closeups (not thumbs) — this is the one screen
  * that shows a stamp at full size — and releases every object URL when the overlay unmounts.
  * `date === null` (no day open) resolves nothing and holds nothing.
  */
 export function useDayView(date: string | null): DayView {
-  const query = useLiveQuery(
-    async (): Promise<DayView> => {
-      if (!date) return EMPTY_DAY;
-      const entry = await db.entries.where("entry_date").equals(date).first();
-      if (!entry) return EMPTY_DAY;
-
-      const stamps = orderStamps(
-        await db.stamps.where("entry_id").equals(entry.id).toArray(),
-      );
-      if (stamps.length === 0) return EMPTY_DAY;
-
-      const aspects = await imageAspects([...new Set(stamps.map((s) => s.image_id))]);
-      return { stamps, urls: new Map(), aspects };
-    },
-    [date],
-    EMPTY_DAY,
-  );
+  const query = useLiveQuery(() => loadDayStamps(date), [date], EMPTY_DAY);
 
   const urls = useImageUrls(
     useMemo(() => [...new Set(query.stamps.map((s) => s.image_id))], [query]),
