@@ -20,6 +20,7 @@ import { AddStampFlow } from "@/components/day/AddStampFlow";
 import { DayPage } from "@/components/day/DayPage";
 import { StickerLayer, visibleGridCenter } from "@/components/sticker/StickerLayer";
 import { StickerTray } from "@/components/sticker/StickerTray";
+import { SyncHint } from "@/components/SyncHint";
 import { CalendarMenu } from "./CalendarMenu";
 import { ExportSheet } from "./ExportSheet";
 import { MonthCloseUp } from "./MonthCloseUp";
@@ -329,6 +330,8 @@ export function Calendar() {
       className="relative h-svh w-screen overflow-hidden bg-page [touch-action:none]"
     >
       <TopBar onMenu={() => setMenuOpen(true)} onStickers={() => setTrayOpen(true)} />
+
+      <SyncHint />
 
       <div
         ref={containerRef}
