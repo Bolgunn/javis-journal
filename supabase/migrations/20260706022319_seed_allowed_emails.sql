@@ -1,4 +1,4 @@
--- Allowlist seed (US-1)
-insert into allowed_emails (email, note) values
-  ('bolguinpozo@gmail.com', 'test account (owner)')
-on conflict (email) do nothing;
+-- Allowlist rows are data, not schema, and this repo is public: they are managed directly in
+-- the Supabase SQL editor (`insert into allowed_emails (email, note) values (...)`), never
+-- committed. This file once held an insert; it is kept (emptied) because the migration version
+-- is already recorded as applied in production.

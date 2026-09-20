@@ -122,14 +122,14 @@ Close the two remaining stories and ship the birthday edition:
    appear in Javi's account — the clean-account property is free.
 
 9. **Javi's two accounts are allowlisted NOW (owner's call — not held to the last step).**
-   Migration `supabase/migrations/20260715000000_allow_javi.sql` adds **`javivita.parra@gmail.com`**
-   and **`javinunn.n@gmail.com`** (she uses both). **Owner runs `supabase db push`** to apply it to
+   Migration `supabase/migrations/20260715000000_allow_javi.sql` adds **her two Gmail addresses**
+   (she uses both; the file is now emptied — allowlist rows live in the SQL editor, see WORKFLOW-PLAN). **Owner runs `supabase db push`** to apply it to
    hosted Supabase (migrations are not auto-applied — see the storage-needs-db-push lesson). Safe to
    add early: the allowlist entry creates no data; RLS keeps her account clean regardless of timing.
    The only effect is she *could* sign in early *if* she had the production URL (she doesn't yet).
 
 10. **Owner-override recovery = three assertions on production, #3 load-bearing.** `OWNER_OVERRIDE_
-    EMAIL` (`olguinpozo@gmail.com`) bypasses `allowed_emails` entirely:
+    EMAIL` (the owner's email) bypasses `allowed_emails` entirely:
     - (1) an allowlisted email → reaches the calendar;
     - (2) a non-allowlisted email → denied;
     - (3) **`OWNER_OVERRIDE_EMAIL`, deliberately *absent* from `allowed_emails`, → still reaches the

@@ -1,6 +1,4 @@
--- Allowlist: Javi's real accounts (US-1, M10 ship gate).
--- She uses both Google accounts, so both are allowlisted.
-insert into allowed_emails (email, note) values
-  ('javivita.parra@gmail.com', 'Javi (primary)'),
-  ('javinunn.n@gmail.com', 'Javi (secondary)')
-on conflict (email) do nothing;
+-- Allowlist rows are data, not schema, and this repo is public: they are managed directly in
+-- the Supabase SQL editor (`insert into allowed_emails (email, note) values (...)`), never
+-- committed. This file once held an insert; it is kept (emptied) because the migration version
+-- is already recorded as applied in production.
