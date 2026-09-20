@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Lint, typecheck (incl. the test files `next build` never sees) and the vitest suite.
+  # Vercel owns `next build`: its deployment check is required on master alongside this.
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version comes from package.json `packageManager`
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # Proves the migration chain replays from zero on a throwaway Postgres. Always runs and
+  # always reports (a required check that never runs blocks the PR forever) — it skips its
+  # work unless supabase/migrations/** changed.
+  migrations:
+    name: migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            migrations:
+              - 'supabase/**'
+      - if: steps.changes.outputs.migrations == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.101.0
+      # Postgres + Auth (auth.users) + Storage (storage.buckets) are all the migrations touch.
+      - if: steps.changes.outputs.migrations == 'true'
+        run: supabase start -x analytics,edge-runtime,functions,imgproxy,inbucket,kong,meta,realtime,rest,studio,vector
+      - if: steps.changes.outputs.migrations == 'true'
+        run: supabase db reset
+      - if: steps.changes.outputs.migrations != 'true'
+        run: echo "No changes under supabase/ — migration replay skipped."
