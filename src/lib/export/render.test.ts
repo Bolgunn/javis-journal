@@ -48,7 +48,7 @@ function stamp(over: Partial<Stamp>): Stamp {
     pos_x: 0.5,
     pos_y: 0.5,
     scale: 0.4,
-    rotation_deg: 30,
+    rotation_deg: 45,
     layer_order: 0,
     created_at: "x",
     updated_at: "x",
