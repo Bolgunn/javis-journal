@@ -50,9 +50,10 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           version: 2.101.0
-      # Postgres + Auth (auth.users) + Storage (storage.buckets) are all the migrations touch.
+      # Postgres + Auth (auth.users) + Storage (storage.buckets) are all the migrations touch;
+      # kong + rest stay up because the CLI health-checks through the gateway on :54321.
       - if: steps.changes.outputs.migrations == 'true'
-        run: supabase start -x analytics,edge-runtime,functions,imgproxy,inbucket,kong,meta,realtime,rest,studio,vector
+        run: supabase start -x analytics,edge-runtime,functions,imgproxy,inbucket,meta,realtime,studio,vector
       - if: steps.changes.outputs.migrations == 'true'
         run: supabase db reset
       - if: steps.changes.outputs.migrations != 'true'
