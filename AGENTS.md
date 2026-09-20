@@ -206,6 +206,31 @@ Copy `.env.local.example` → `.env.local` and fill in the Supabase project keys
 - `pnpm dev` — start the dev server (http://localhost:3000).
 - `pnpm build` / `pnpm start` — production build / serve.
 - `pnpm lint` — ESLint.
+- `pnpm typecheck` — `next typegen && tsc --noEmit`. Covers the test files, which
+  `next build` never typechecks.
+- `pnpm test` — the vitest suite.
+
+## Workflow
+Resolved in `Wiki Javi's Journal/plans/WORKFLOW-PLAN.md`. **`master` is what is on Javi's
+phone**, holding real data with **no backup**. Dev runs against that same production project.
+
+- **Trunk-based.** Short-lived `feat/*` · `fix/*` · `chore/*` branches → PR → `master`. No
+  `develop`. A ruleset on `master` rejects direct pushes (no bypass) and requires the `check`
+  and `migrations` CI jobs plus Vercel's deployment check. 0 approvals (self-approval is
+  impossible). Merge commits are disabled: **rebase-merge** multi-commit PRs (keeps
+  commit-per-task), squash one-liners. Record PR numbers in plan docs, not branch SHAs.
+- **The PR preview is the Tier-2 device rig** — open it on the phone before merging.
+- **CI** (`.github/workflows/ci.yml`): `check` = lint + typecheck + test; `migrations` =
+  `supabase db reset` from zero whenever `supabase/**` changed. Vercel owns `next build`.
+- **Migrations are applied by hand** (`supabase db push`, before merging — the PR template
+  checklist) and are **additive-first** (expand/contract): add in one PR, stop reading the old
+  shape, drop it in a *later* PR, so code and schema work in either deploy order.
+- **The allowlist is data, not schema.** The repo is public: never commit an email. Rows are
+  managed in the Supabase SQL editor.
+- **Issues are the inbox** (labels `bug` / `idea` only); designs still go to `plans/`. PRs
+  say `closes #N`.
+- **Dependencies:** Dependabot security updates only; `pnpm update` by hand at the start of a
+  feature branch. Node is pinned in `.node-version` (= Vercel's 24.x).
 
 ## Methodology
 Each milestone (M2…M10) is worked in two phases:
@@ -220,7 +245,8 @@ Each milestone (M2…M10) is worked in two phases:
      agents in isolated git worktrees.
    - Otherwise — a single thread of work, or tasks with real interdependencies — build
      directly in the main worktree; don't pay for agent isolation that isn't needed.
-   - `pnpm lint` and `pnpm build` must pass before a task counts as done.
+   - `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` must pass before a task
+     counts as done (CI enforces all four on the PR).
    - Commit per task with a conventional `feat:`/`chore:`/`fix:` message, not one giant
      milestone commit.
 
