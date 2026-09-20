@@ -61,7 +61,7 @@ test("canShareFiles is false when there is no share API at all (desktop)", () =>
 // ---- shareBlob ----
 
 test("shareBlob resolves 'shared' when the share sheet completes", async () => {
-  const share = vi.fn(async () => undefined);
+  const share = vi.fn<(data: ShareData) => Promise<void>>(async () => undefined);
   vi.stubGlobal("navigator", { share, canShare: () => true });
 
   await expect(shareBlob(PNG, "m.png")).resolves.toBe("shared");

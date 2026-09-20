@@ -53,7 +53,7 @@ test("rejects a non-HEIF ftyp box (mp42/isom/avc1)", () => {
 
 test("accepts an ArrayBuffer as well as a Uint8Array", () => {
   const bytes = ftyp("heic");
-  expect(isHeic(bytes.buffer)).toBe(true);
+  expect(isHeic(bytes.buffer as ArrayBuffer)).toBe(true);
 });
 
 test("rejects a too-short buffer", () => {
