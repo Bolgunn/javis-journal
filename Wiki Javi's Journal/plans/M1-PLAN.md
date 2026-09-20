@@ -125,14 +125,14 @@ key names)
 Already done: Supabase project created + CLI-linked; Google OAuth client (Web app) with
 redirect URI `https://hhvenfugqragfrylzwws.supabase.co/auth/v1/callback`; Google provider
 enabled in Supabase with client id/secret; Supabase URL config (Site URL + redirect URLs);
-consent screen in Testing with test users `olguinpozo@gmail.com`, `bolguinpozo@gmail.com`.
+consent screen in Testing with test users (the owner's two Google accounts).
 
 Remaining after the agents finish:
-1. In `.env.local`: set `OWNER_OVERRIDE_EMAIL=olguinpozo@gmail.com`; set `CRON_SECRET`
+1. In `.env.local`: set `OWNER_OVERRIDE_EMAIL` to the owner's email; set `CRON_SECRET`
    (any random string) for later deploy.
 2. Apply the schema: `supabase db push`.
 3. Seed the allowlist (Supabase SQL editor, **not** committed):
    `insert into allowed_emails (email, note) values
-   ('olguinpozo@gmail.com','owner'), ('bolguinpozo@gmail.com','tester');`
+   ('<owner email>','owner'), ('<test email>','tester');`
 4. `npm run dev` → sign in with a test account → land on `/`. Try a non-listed account
    → `/denied`. Verify owner-override still works with the allowlist empty.
