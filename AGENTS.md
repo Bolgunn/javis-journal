@@ -129,8 +129,22 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
       box). Layout is a no-op on a phone — under the per-edge rule only the top ink is paid for, so
       `cellW` is bit-identical. Still no Dexie bump (an unindexed value column's domain widening).
       281 vitest tests.
-- [ ] M9 — PNG export (US-12)
-- [ ] M10 — Stability gate + polish + ship (US-13 hard gate, US-14)
+- [x] **M9 — PNG export (US-12)** — the **viewed** month (Calendar's `{year, month}` state, never
+      `todayISO()`) composed to a PNG from the 3-dots **Download PNG** item. A pure export layer in
+      `src/lib/export/`: `plan.ts` (DOM-free draw-op geometry that **reuses the existing seams** —
+      `nineSliceRects`, `stampBoxes`, `stickerBoxes` — so the PNG cannot drift from the screen),
+      `data.ts` (the Dexie read seam yielding **untainted** blobs), `render.ts` (the one file that
+      touches a canvas; the taint-safety canary asserts `drawImage` only ever gets `ImageBitmap`s),
+      `save.ts` (share-sheet vs download, `AbortError` swallowed) and the `exportMonthPng`
+      orchestrator. Verified by **320 vitest tests** (the whole suite on `master` today; M8's 281 is
+      that milestone's historical figure). UI: `ExportSheet.tsx` (title toggle + **Share**/**Save**).
+      The export target is M8's `data-month-frame` box, so frame + stickers + thumbs come along and
+      today's disc is deliberately **not** drawn. Merged via PR #2; dev harness at `/dev/export`.
+      Tier-2 (real-device) is an owner gate.
+- [ ] M10 — Stability gate + polish + ship (US-13 hard gate, US-14). Built but **not merged**:
+      5 commits on `m10-ship` (cut-sound module + Stamper snip + mute toggle, the long-run tour at
+      `/dev/longrun`, the offline hint) sit in **draft PR #6**, rebased and green. Parked on
+      purpose — more sound work comes first.
 
 ## Stack
 - **Next.js (App Router) + React + TypeScript**, deployed on Vercel.
