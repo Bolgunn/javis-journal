@@ -115,3 +115,23 @@ describe.each(FRAME_IDS)("nineSliceRects(%s)", (id) => {
     expect(by(pieces, "t").tiles).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("nineSliceRects — per-side widths (the export's stretched ring)", () => {
+  test.each(FRAME_IDS)("%s: sideW sets the l/r columns; the ring still tiles exactly", (id) => {
+    const spec = FRAMES[id];
+    const w = 2104;
+    const h = 1200;
+    const sideW = { l: spec.slice.l * 4 + 17.5, r: spec.slice.r * 4 + 17.5 };
+    const pieces = nineSliceRects(spec, w, h, 4, sideW);
+    for (const k of ["tl", "l", "bl"]) expect(by(pieces, k).dst.w).toBe(sideW.l);
+    for (const k of ["tr", "r", "br"]) expect(by(pieces, k).dst.w).toBe(sideW.r);
+    // Columns still abut: left | top run | right spans exactly the box width.
+    expect(by(pieces, "t").dst.x).toBe(sideW.l);
+    expect(by(pieces, "tr").dst.x + by(pieces, "tr").dst.w).toBe(w);
+    expect(by(pieces, "t").dst.w).toBe(w - sideW.l - sideW.r);
+    // Rows are untouched.
+    expect(by(pieces, "tl").dst.h).toBe(spec.slice.t * 4);
+    // Without sideW nothing changes (the CSS path).
+    expect(by(nineSliceRects(spec, w, h, 4), "l").dst.w).toBe(spec.slice.l * 4);
+  });
+});

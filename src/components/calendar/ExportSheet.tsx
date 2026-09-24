@@ -61,8 +61,8 @@ export function ExportSheet({
   const busy = preparing !== null;
 
   /** Compose once for this tap; the title toggle affects the output, so we never cache. */
-  const compose = () =>
-    composeMonthPng(year, month, weekStart, frame, includeTitle);
+  const compose = async () =>
+    (await composeMonthPng(year, month, weekStart, frame, includeTitle)).full;
 
   const onShare = async () => {
     if (busy) return;

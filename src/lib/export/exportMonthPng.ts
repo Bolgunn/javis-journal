@@ -1,8 +1,8 @@
 // M9 — the export composer (M9-PLAN decision 12). Wires the pure/seam layers into one call: read
 // the month from Dexie (`data.ts`, untainted blobs) → decode them off-thread in small batches
 // (`createImageBitmap`) → build the draw-op plan (`plan.ts`) → rasterize (`render.ts`) → a PNG
-// `Blob`. The caller (ExportSheet / the harness) then hands that blob to `save.ts`'s explicit
-// `shareBlob` or `downloadBlob` — this module never decides between share and download.
+// set of PNGs (the full 2160×1350 post + its two carousel halves). The caller (ExportSheet / the
+// harness) then hands whichever it wants to `save.ts`'s `downloadBlob`.
 //
 // `year/month` are `Calendar`'s VIEWED `{year, month}` state, passed straight through — the export
 // never reads `todayISO()`. Non-blocking without a worker: `createImageBitmap` already decodes off
@@ -13,7 +13,14 @@
 import type { SelectedFrame } from "@/lib/db/types";
 import { loadExportData } from "./data";
 import { buildExportPlan } from "./plan";
-import { renderExport, type ExportBitmaps, type ExportTokens } from "./render";
+import {
+  renderExport,
+  type ExportBitmaps,
+  type ExportPngs,
+  type ExportTokens,
+} from "./render";
+
+export type { ExportPngs };
 
 /** How many blobs to decode in parallel — enough to be fast, few enough to bound peak memory. */
 const DECODE_BATCH = 6;
@@ -66,8 +73,8 @@ async function loadFrameBitmap(src: string | null): Promise<ImageBitmap | null> 
 }
 
 /**
- * Compose the VIEWED month into a PNG blob — everything except the final save. The `/dev/export`
- * harness uses this directly to render into an `<img>` without a share/download.
+ * Compose the VIEWED month into its PNGs — everything except the final save. The `/dev/export`
+ * harness uses this directly to render into `<img>`s without a download.
  */
 export async function composeMonthPng(
   year: number,
@@ -75,7 +82,7 @@ export async function composeMonthPng(
   weekStart: number,
   frame: SelectedFrame,
   includeTitle: boolean,
-): Promise<Blob> {
+): Promise<ExportPngs> {
   const data = await loadExportData(year, month);
 
   const plan = buildExportPlan({
