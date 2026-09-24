@@ -185,13 +185,45 @@ to fix it.
    second download isn't blocked, the close-up fills the screen, the guard blocks edits.
 3. **Empty her outbox:** she opens the app on the network and leaves it a moment. An offline
    edit pushed after the rewrite would win LWW with old-space coordinates.
-4. She **doesn't open the app** for the next few minutes.
+4. She **doesn't open the app** for the next few minutes. Nor does anyone edit stamps or stickers
+   from a **signed-in local `pnpm dev`** of this branch before step 6: local dev also runs against
+   production, and the preview guard (decision 9) only covers Vercel previews.
 5. **Merge** (rebase) and wait for Vercel's production deploy to finish.
 6. **`supabase db push`** — applies the rewrite.
 7. **Verify** on your phone: open a month you know; stamps sit where she put them, stickers on
    their days. Download both images and check them.
 8. If anything is wrong: restore `stamps.scale` / `placed_stickers.scale` from the backup
    (bump `updated_at` again so devices pull the fix).
+
+## As built (deviations from the decisions above)
+
+Built on `feat/instagram-post`, one commit per task. Where the build had to depart from the text:
+
+- **The sticker grid box is 28/15, not 64/25** (decision 1). The grid is 7 columns × 6 rows of
+  cells, so its aspect is `(7/6)·r`; it equalled `r²` = 49/36 at 7:6 only because the cell ratio
+  happened to be 7/6 too. `GRID_ASPECT = (7/6) · CELL_ASPECT_RATIO`. Decision 4's sticker rewrite
+  is unaffected (the grid still widens 48/35 for the same height).
+- **M8's "the frame is free on a phone" now holds only in full-month** (decision 2). At 1.8 the
+  phone close-up is height-bound, so the top ring edge — the one edge that is always charged —
+  costs it `fh/6 · 8/5` ≈ 2px of cell width. `fit.test.ts` asserts both halves of that.
+- **The ring's side stretch is sized on the ink** (decision 5). The side 9-slice column is `slice`
+  px wide of which only the outer `ink` px are the ring, so widening the column by the leftover
+  would also widen the paper mat. `stretchedSideW = slice · (scale + leftover/ink)` makes the ink
+  band grow by exactly the leftover and keeps the mat screen-width. Measured leftovers are
+  0–12.5px per side (Ruby with a title is the widest).
+- **Vertical leftover** (title off, or a width-bound frame) centres the title + framed box on the
+  post rather than growing the bottom margin.
+- **The halves are copied from the post canvas**, so the taint canary now asserts two things: the
+  post canvas only ever draws `ImageBitmap`s, and each half draws only the post canvas, once.
+- **The migration's `updated_at` bump is `greatest(now(), max(updated_at) + 1ms)`** (decision 8).
+  The pull cursor is the max *client-authored* `updated_at`, so a device whose clock ran ahead
+  could hold a cursor past the server's `now()` and never pull the rewrite.
+- **The preview guard** (decision 9): `createStampOnDay` throws a `DayWriteError` (the Stamper
+  already shows those); the other seven writes no-op / return null, which every caller already
+  treats as "nothing written". The image a refused cut ingested is still uploaded (harmless: the
+  images table has no coordinate space).
+- **Stamp thumbs are drawn slightly larger than 1:1 in the PNG**: cells are ~289px wide now (were
+  252), from the same 256px thumbs.
 
 ## Task DAG
 

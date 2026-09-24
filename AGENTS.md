@@ -60,9 +60,9 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
       render path shared by preview and bake, 4 masks, the rotation-aware no-blank-corner clamp,
       ingest through the M3 image layer. M6 re-skinned its UI (see below).
 - [x] **M6 — Day editor + punch machine** (US-7, US-8) — the first writer of `entries`/`stamps`.
-      The **day page** is a client overlay inside the Calendar island — the 7:6 calendar cell
-      zoomed (`CELL_ASPECT` reused), FLIP-animated out of the tapped cell, with a `history`
-      back-guard. Editing is **direct manipulation** (ADR-M6 — DESIGN's long-press *menu* is
+      The **day page** is a client overlay inside the Calendar island — the calendar cell
+      zoomed (`CELL_ASPECT` reused; 7:6 then, 8:5 since the Instagram addendum), FLIP-animated
+      out of the tapped cell, with a `history` back-guard. Editing is **direct manipulation** (ADR-M6 — DESIGN's long-press *menu* is
       dropped): long-press selects (blue glow), then drag / pinch / twist (45° snap on release,
       **one write per gesture, on gesture-end**); a short tap on any stamp toggles front/back; a
       floating ✕ soft-deletes with an Undo toast that restores the original `layer_order`.
@@ -80,8 +80,9 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
       (ADR-M7, `plans/M7-PLAN.md`): stickers are MONTH-BOUNDED, not a global layer** — a sticker
       placed on July 2026 lives on July 2026 (`placed_stickers.year_month`); the **tray stays
       global**. `StickerLayer` renders inside the **day-grid bbox** (`7·cellW × 6·cellH`, aspect
-      derived as `CELL_ASPECT²` = 49/36 — the one rect identical in both views, and the rect M9
-      exports), so a sticker keeps its place across a view switch and scrolls with the close-up
+      derived as `(7/6)·CELL_ASPECT` — 49/36 then, **28/15** at 8:5 (that it equalled
+      `CELL_ASPECT²` at 7:6 was a coincidence) — the one rect identical in both views, and the
+      rect M9 exports), so a sticker keeps its place across a view switch and scrolls with the close-up
       grid for free. **Selection is what makes a manipulable layer safe on top of a scrolling,
       pinchable calendar** (the four isolation cases): unselected, the layer is
       `pointer-events: none` and a tap on a sticker is handed *back* to the day underneath it
@@ -107,8 +108,9 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
       a pure, DOM-free `nineSliceRects()` that **M9's canvas export imports verbatim**, so the
       CSS and the canvas cannot drift. The ring is charged **per edge**: left/right/bottom
       overhang into the 24px `GUTTER` (free), the top edge is paid for (the title is above it) —
-      so **`cellW` on a phone is bit-identical with and without a frame**. `border-image-outset`
-      is **0**: the slice surplus (the fat corner) overhangs *inward* over the transparent mat,
+      so **`cellW` on a phone is bit-identical with and without a frame** (in full-month; since the
+      8:5 addendum the phone close-up is height-bound and pays the top ring's ~2px).
+      `border-image-outset` is **0**: the slice surplus (the fat corner) overhangs *inward* over the transparent mat,
       never outward off-screen (the plan had this backwards; caught by rendering it). **No Dexie
       bump** (the schema stays M7's v5): `profiles.selected_frame` already existed and already
       synced. Verified by 227 vitest tests (pre-merge); dev harness at `/dev/frames`. Tier-2
@@ -135,21 +137,30 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
       `nineSliceRects`, `stampBoxes`, `stickerBoxes` — so the PNG cannot drift from the screen),
       `data.ts` (the Dexie read seam yielding **untainted** blobs), `render.ts` (the one file that
       touches a canvas; the taint-safety canary asserts `drawImage` only ever gets `ImageBitmap`s),
-      `save.ts` (share-sheet vs download, `AbortError` swallowed) and the `exportMonthPng`
-      orchestrator. Verified by **320 vitest tests** (the whole suite on `master` today; M8's 281 is
-      that milestone's historical figure). UI: `ExportSheet.tsx` (title toggle + **Share**/**Save**).
+      `save.ts` (share-sheet vs download, `AbortError` swallowed — the share path was removed by the
+      Instagram addendum) and the `exportMonthPng` orchestrator. Verified by **320 vitest tests** (the whole suite on `master` today; M8's 281 is
+      that milestone's historical figure). UI: `ExportSheet.tsx` (title toggle + **Share**/**Save** — now **Full image**/**2 halves**).
       The export target is M8's `data-month-frame` box, so frame + stickers + thumbs come along and
       today's disc is deliberately **not** drawn. Merged via PR #2; dev harness at `/dev/export`.
       Tier-2 (real-device) is an owner gate.
-- [ ] **M9 addendum — Instagram two-photo post (US-12)** — *planned, not built.* She posts
-      each month as a 2-photo Instagram carousel (2 × 1080×1350 = one 2160×1350 image), so the
-      day cells go **7:6 → 8:5 app-wide** (`CELL_ASPECT_RATIO`; the sticker box follows, 49/36 →
-      64/25), the close-up divisor 2.5 → 1.8, and the export is laid out on a fixed 2160×1350
-      post with **Full image** + **2 halves** download buttons (Share removed). Existing
-      stamps/stickers are rewritten `scale × 35/48` by one guarded SQL migration run **after**
-      the deploy (no Dexie migration — sync carries it), and preview builds refuse stamp/sticker
-      writes. Plan + rollout runbook: `plans/M9-INSTAGRAM-PLAN.md`. Until it ships, the 7:6 /
-      49/36 figures below are still the truth.
+- [ ] **M9 addendum — Instagram two-photo post (US-12)** — *built on `feat/instagram-post`, not
+      merged; Tier-2 + the rollout runbook pending.* She posts each month as a 2-photo Instagram
+      carousel (2 × 1080×1350 = one 2160×1350 image), so the day cells went **7:6 → 8:5 app-wide**
+      (`CELL_ASPECT_RATIO`; the day page follows, and the sticker grid box is `(7/6)·r` = **28/15** —
+      the plan's "64/25" was the 7:6 coincidence `r²`), the close-up divisor **2.5 → 1.8** (a phone
+      close-up is height-bound again and fills the screen), and three fraction-of-width sizes were
+      re-tuned × 35/48 (`PLACEMENT.MIN_SCALE`, `CHIP_FONT_RATIO`, `EXPORT.DAY_FONT_RATIO`). The export
+      now takes the **post size as its input** (`EXPORT.POST`) and derives `cellW`; the ring spans the
+      full post and its side edges stretch by exactly the leftover (0–12.5px/side — `nineSliceRects`
+      gained per-side widths, sized so the *ink* grows and the mat stays screen-width); the grid is
+      centred, so the cut at x=1080 bisects column 4. `renderExport` draws one post canvas and copies
+      each half out of it. `ExportSheet`: title toggle + **Full image** + **2 halves** (plain
+      downloads, `-1`/`-2` filenames; Share + `shareBlob`/`canShareFiles` deleted). Existing
+      stamps/stickers are rewritten `scale × 35/48` by one guarded migration
+      (`20260924000000_cells_8x5.sql`, `updated_at` bumped past every cursor) that is pushed
+      **after** the deploy — no Dexie migration or bump, sync carries it. **Preview builds refuse
+      every stamp/sticker write** (`src/lib/db/preview-guard.ts`, permanently), since a preview runs
+      against production. 359 vitest tests. Plan + rollout runbook: `plans/M9-INSTAGRAM-PLAN.md`.
 - [ ] M10 — Stability gate + polish + ship (US-13 hard gate, US-14). Built but **not merged**:
       5 commits on `m10-ship` (cut-sound module + Stamper snip + mute toggle, the long-run tour at
       `/dev/longrun`, the offline hint) sit in **draft PR #6**, rebased and green. Parked on
@@ -187,15 +198,16 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
   (`useMonthData`/`useDayView`/`useProfile`, the sole component read seam); **writes go through
   `mutations.ts`** (`createStampOnDay`/`updateStamp`/`deleteStamp`/`restoreStamp`/
   `setStartOfWeek`/`setSelectedFrame`, all via `markDirty`). Components never call `db.*`
-  directly.
+  directly. `preview-guard.ts` (`editingLocked`) makes every stamp/sticker write refuse on a
+  Vercel preview, which runs against production.
 - `src/lib/frames/` — the M8 frame layer, pure: `spec.ts` (the single `FRAMES` constants object —
   each frame's measured `ink`/`slice` insets, the stepped ×2/×3/×4 `frameScale`, the `FRAME_MAT`),
   `nine-slice.ts` (`nineSliceRects` — **the seam M9's canvas export imports**, since CSS
   `border-image` does not apply to canvas), `style.ts` (`frameCss`). The ring itself is
   `src/components/calendar/FramedGrid.tsx` (`data-month-frame` — M9's export target).
 - `src/lib/calendar/` — pure calendar geometry: `month-grid.ts` (ALG-5, today/bounds/date
-  helpers), `fit.ts` (shared 7:6 cell-fit model — 8:5 once the Instagram addendum ships, `CELL_ASPECT`) + `pinch.ts` (the pinch-to-switch
-  decision, incl. the M6 pinch-isolation rule). No React, no Dexie.
+  helpers), `fit.ts` (the shared 8:5 cell-fit model, `CELL_ASPECT`) + `pinch.ts` (the
+  pinch-to-switch decision, incl. the M6 pinch-isolation rule). No React, no Dexie.
 - `src/lib/gestures/` — the **shared** direct-manipulation layer (M7): `machine.ts`
   (`TransformGestures` + the `Surface` its caller injects — one state machine and one set of
   commit rules for both stamps and stickers), `hit.ts` (rotated-box hit-testing), `layers.ts`
@@ -203,10 +215,10 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
 - `src/lib/day/` — the day editor's pure layer: `place.ts` (ALG-8 + the single `PLACEMENT`
   constants object + every clamp), `layout.ts` (`stampBoxes` — the one composition function the
   day page, the calendar cell and the M9 export all share), `hit.ts`, `gestures.ts` (the day
-  surface: the 7:6 page — 8:5 after the Instagram addendum).
+  surface: the 8:5 page).
   No React, no Dexie. `src/components/day/` — `DayPage`, `DayStamp`, `UndoToast`, `AddStampFlow`.
 - `src/lib/sticker/` — the sticker pure layer (M7): `place.ts` (the single `STICKER` constants
-  object, the 49/36 grid box (64/25 after the Instagram addendum) + its clamps, tap-placement + cascade + the 50-per-month cap),
+  object, the 28/15 grid box + its clamps, tap-placement + cascade + the 50-per-month cap),
   `layout.ts` (`stickerBoxes`), `cell.ts` (which day a point lands on — the tap-through rule),
   `gestures.ts` (the sticker surface), `seed.ts`/`seeds.ts` (the 3 seeded stickers, deterministic
   ids). `src/components/sticker/` — `StickerLayer`, `StickerTray`.
