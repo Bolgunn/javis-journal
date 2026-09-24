@@ -195,7 +195,7 @@ export function ExportHarness() {
     setBusy(true);
     setErr(null);
     try {
-      const blob = await composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle);
+      const { full: blob } = await composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle);
       const bmp = await createImageBitmap(blob);
       setDims(`${bmp.width}×${bmp.height}px · ${(blob.size / 1024).toFixed(0)} KB`);
       bmp.close();
@@ -274,7 +274,7 @@ export function ExportHarness() {
           type="button"
           onClick={() =>
             void composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle).then((b) =>
-              shareBlob(b, exportFilename(YEAR, MONTH)),
+              shareBlob(b.full, exportFilename(YEAR, MONTH)),
             )
           }
           disabled={busy}
@@ -286,7 +286,7 @@ export function ExportHarness() {
           type="button"
           onClick={() =>
             void composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle).then((b) =>
-              downloadBlob(b, exportFilename(YEAR, MONTH)),
+              downloadBlob(b.full, exportFilename(YEAR, MONTH)),
             )
           }
           disabled={busy}

@@ -4,15 +4,14 @@ import { monthGrid } from "@/lib/calendar/month-grid";
 import type { PlacedSticker, SelectedFrame, Stamp } from "@/lib/db/types";
 import { stampBoxes } from "@/lib/day/layout";
 import { stickerBoxes } from "@/lib/sticker/layout";
-import { frameBoxInsets, frameScale } from "@/lib/frames/spec";
+import { CELL_ASPECT_RATIO } from "@/lib/calendar/fit";
+import { FRAME_MAT, FRAMES } from "@/lib/frames/spec";
 import {
   buildExportPlan,
   EXPORT,
-  EXPORT_CELL_H,
-  EXPORT_GRID_H,
-  EXPORT_GRID_W,
   exportDimensions,
   exportImageIds,
+  stretchedSideW,
   type DrawOp,
   type ExportPlanInput,
 } from "./plan";
@@ -78,39 +77,128 @@ const stampOps = (ops: DrawOp[]) =>
 const stickerOps = (ops: DrawOp[]) =>
   ops.filter((o): o is Extract<DrawOp, { kind: "sticker" }> => o.kind === "sticker");
 
-describe("exportDimensions", () => {
-  test("grid geometry constants are the derived 8:5 box", () => {
-    expect(EXPORT_CELL_H).toBe(157.5);
-    expect(EXPORT_GRID_W).toBe(1764);
-    expect(EXPORT_GRID_H).toBe(945);
+const frameOps = (ops: DrawOp[]) =>
+  ops.filter((o): o is Extract<DrawOp, { kind: "frame" }> => o.kind === "frame");
+
+const CASES = FRAMES_ALL.flatMap((frame) => [
+  { frame, includeTitle: true },
+  { frame, includeTitle: false },
+]);
+
+describe("exportDimensions — the month laid out on a 2160×1350 post", () => {
+  test.each(CASES)("$frame, title $includeTitle: the post is exactly 2160×1350", (c) => {
+    const d = exportDimensions(c.frame, c.includeTitle);
+    expect(d.width).toBe(2160);
+    expect(d.height).toBe(1350);
+    const plan = buildExportPlan(baseInput(c));
+    expect([plan.width, plan.height, plan.sliceW]).toEqual([2160, 1350, 1080]);
   });
 
-  test.each(FRAMES_ALL)("%s: outer size = grid + ring + mat + margin (+title)", (frame) => {
-    const scale = frameScale(EXPORT_GRID_W);
-    const inset = frameBoxInsets(frame, scale);
-    const framedW = EXPORT_GRID_W + 2 * inset.w;
-    const framedH = EXPORT.HEADER_H + EXPORT_GRID_H + 2 * inset.h;
+  test.each(CASES)("$frame, title $includeTitle: 8:5 cells, as big as fit", (c) => {
+    const d = exportDimensions(c.frame, c.includeTitle);
+    expect(Number.isInteger(d.cellW)).toBe(true);
+    expect(d.cellW / d.cellH).toBeCloseTo(CELL_ASPECT_RATIO, 12);
+    expect(d.gridW).toBe(7 * d.cellW);
+    expect(d.gridH).toBeCloseTo(6 * d.cellH, 9);
 
-    const withTitle = exportDimensions(frame, true);
-    expect(withTitle.width).toBe(framedW + 2 * EXPORT.OUTER_MARGIN);
-    expect(withTitle.height).toBe(
-      EXPORT.TITLE_BAND_H + framedH + 2 * EXPORT.OUTER_MARGIN,
-    );
-
-    const noTitle = exportDimensions(frame, false);
-    expect(noTitle.width).toBe(withTitle.width);
-    // Dropping the title removes exactly the band height.
-    expect(withTitle.height - noTitle.height).toBe(EXPORT.TITLE_BAND_H);
+    // Everything fits inside the post with at least the outer margin on every side…
+    const M = EXPORT.OUTER_MARGIN;
+    expect(d.framedX).toBeGreaterThanOrEqual(M);
+    expect(d.framedX + d.framedW).toBeLessThanOrEqual(2160 - M);
+    expect(d.titleY).toBeGreaterThanOrEqual(M - 1e-9);
+    expect(d.framedY + d.framedH).toBeLessThanOrEqual(1350 - M + 1e-9);
+    // …and one more px of cell would not (the binding bound is used, not a guess).
+    const availW = 2160 - 2 * M - 2 * d.inset.w;
+    const availH = 1350 - 2 * M - d.titleH - EXPORT.HEADER_H - 2 * d.inset.h;
+    const bigger = d.cellW + 1;
+    expect(7 * bigger > availW || (6 * bigger) / CELL_ASPECT_RATIO > availH).toBe(true);
   });
 
-  test("'none' frame adds no ring or mat (width bit-identical to bare grid + margin)", () => {
-    const none = exportDimensions("none", false);
-    expect(none.width).toBe(EXPORT_GRID_W + 2 * EXPORT.OUTER_MARGIN);
-    expect(none.gridX).toBe(EXPORT.OUTER_MARGIN);
+  test.each(CASES)("$frame, title $includeTitle: the grid is centred on the cut", (c) => {
+    const d = exportDimensions(c.frame, c.includeTitle);
+    expect(d.gridX + d.gridW / 2).toBeCloseTo(EXPORT.SLICE_W, 9);
+    // So x = 1080 falls in the middle of column 4 (index 3) — decision 6.
+    expect(d.gridX + 3.5 * d.cellW).toBeCloseTo(EXPORT.SLICE_W, 9);
+  });
+
+  test.each(CASES)("$frame, title $includeTitle: the side leftover is exactly the stretch", (c) => {
+    const d = exportDimensions(c.frame, c.includeTitle);
+    expect(d.sideStretch).toBeGreaterThanOrEqual(0);
+    // Ring+mat + stretch on each side, plus the grid, is exactly the framed (full-width) box.
+    expect(2 * (d.inset.w + d.sideStretch) + d.gridW).toBeCloseTo(d.framedW, 9);
+  });
+
+  test("dropping the title never shrinks the cells", () => {
+    for (const frame of FRAMES_ALL) {
+      expect(exportDimensions(frame, false).cellW).toBeGreaterThanOrEqual(
+        exportDimensions(frame, true).cellW,
+      );
+    }
+  });
+
+  test("'none' frame adds no ring or mat", () => {
+    const none = exportDimensions("none", true);
+    expect(none.inset).toEqual({ w: 0, h: 0 });
+    expect(none.gridX).toBe(EXPORT.OUTER_MARGIN + none.sideStretch);
   });
 
   test("scale steps to ×4 at export resolution", () => {
-    expect(exportDimensions("rse", true).scale).toBe(4);
+    for (const c of CASES) expect(exportDimensions(c.frame, c.includeTitle).scale).toBe(4);
+  });
+});
+
+describe("buildExportPlan — the ring spans the post and hugs the grid", () => {
+  test.each(["rse", "hgss_15", "hgss_18"] as const)(
+    "%s: side edges widen by exactly the leftover, the mat stays screen-width",
+    (frame) => {
+      for (const includeTitle of [true, false]) {
+        const d = exportDimensions(frame, includeTitle);
+        const spec = FRAMES[frame];
+        const pieces = frameOps(buildExportPlan(baseInput({ frame, includeTitle })).ops).map(
+          (o) => o.piece,
+        );
+        const byKey = (k: string) => pieces.find((p) => p.key === k)!.dst;
+
+        // The ring's outer box is the full-width framed box.
+        expect(byKey("tl").x).toBeCloseTo(d.framedX, 9);
+        expect(byKey("tr").x + byKey("tr").w).toBeCloseTo(d.framedX + d.framedW, 9);
+
+        const l = byKey("l");
+        const r = byKey("r");
+        expect(l.w).toBeCloseTo(
+          stretchedSideW(spec.slice.l, spec.ink.l, d.scale, d.sideStretch),
+          9,
+        );
+        expect(r.w).toBeCloseTo(
+          stretchedSideW(spec.slice.r, spec.ink.r, d.scale, d.sideStretch),
+          9,
+        );
+
+        // The ink band (the outer ink/slice of the column) widened by exactly the leftover…
+        const inkL = (l.w * spec.ink.l) / spec.slice.l;
+        const inkR = (r.w * spec.ink.r) / spec.slice.r;
+        expect(inkL).toBeCloseTo(spec.ink.l * d.scale + d.sideStretch, 9);
+        expect(inkR).toBeCloseTo(spec.ink.r * d.scale + d.sideStretch, 9);
+        // …so its inner edge sits exactly one mat away from the grid, as on screen.
+        expect(d.gridX - (d.framedX + inkL)).toBeCloseTo(FRAME_MAT * d.scale, 9);
+        expect(d.framedX + d.framedW - inkR - (d.gridX + d.gridW)).toBeCloseTo(
+          FRAME_MAT * d.scale,
+          9,
+        );
+
+        // Top/bottom are untouched: the ring hugs the header + grid vertically too.
+        expect(byKey("t").h).toBe(spec.slice.t * d.scale);
+        expect(byKey("b").h).toBe(spec.slice.b * d.scale);
+      }
+    },
+  );
+
+  test("'none' draws no ring", () => {
+    for (const includeTitle of [true, false]) {
+      const plan = buildExportPlan(baseInput({ frame: "none", includeTitle }));
+      expect(frameOps(plan.ops)).toHaveLength(0);
+      expect(plan.frameSrc).toBeNull();
+    }
   });
 });
 
@@ -125,17 +213,17 @@ describe("buildExportPlan — cells", () => {
       const col = i % 7;
       const row = Math.floor(i / 7);
       const c = cells[i];
-      expect(c.x).toBe(dims.gridX + col * EXPORT.CELL_W);
-      expect(c.y).toBe(dims.gridY + row * EXPORT_CELL_H);
-      expect(c.w).toBe(EXPORT.CELL_W);
-      expect(c.h).toBe(EXPORT_CELL_H);
+      expect(c.x).toBeCloseTo(dims.gridX + col * dims.cellW, 9);
+      expect(c.y).toBeCloseTo(dims.gridY + row * dims.cellH, 9);
+      expect(c.w).toBe(dims.cellW);
+      expect(c.h).toBe(dims.cellH);
     }
     // The union spans exactly the grid rect.
     expect(cells[0].x).toBe(dims.gridX);
     expect(cells[0].y).toBe(dims.gridY);
     const last = cells[41];
-    expect(last.x + last.w).toBe(dims.gridX + EXPORT_GRID_W);
-    expect(last.y + last.h).toBe(dims.gridY + EXPORT_GRID_H);
+    expect(last.x + last.w).toBeCloseTo(dims.gridX + dims.gridW, 9);
+    expect(last.y + last.h).toBeCloseTo(dims.gridY + dims.gridH, 9);
   });
 
   test("blank leading/trailing cells match monthGrid for Mon and Sun starts", () => {
@@ -163,10 +251,10 @@ describe("buildExportPlan — stamps & stickers reuse the shared layout", () => 
     const idx = grid.findIndex((c) => c?.date === "2026-07-01");
     const col = idx % 7;
     const row = Math.floor(idx / 7);
-    const cellX = dims.gridX + col * EXPORT.CELL_W;
-    const cellY = dims.gridY + row * EXPORT_CELL_H;
+    const cellX = dims.gridX + col * dims.cellW;
+    const cellY = dims.gridY + row * dims.cellH;
 
-    const expected = stampBoxes(stamps, aspects, EXPORT.CELL_W)[0];
+    const expected = stampBoxes(stamps, aspects, dims.cellW)[0];
     const op = stampOps(buildExportPlan(input).ops)[0];
     expect(op.imageId).toBe("img-stamp");
     expect(op.box.x).toBeCloseTo(cellX + expected.x, 6);
@@ -182,7 +270,7 @@ describe("buildExportPlan — stamps & stickers reuse the shared layout", () => 
     const stickers = [sticker({ id: "k", pos_x: 0.4, pos_y: 0.4, scale: 0.2 })];
     const aspects = new Map([["img-sticker", 1]]);
     const dims = exportDimensions("rse", true);
-    const expected = stickerBoxes(stickers, aspects, EXPORT_GRID_W)[0];
+    const expected = stickerBoxes(stickers, aspects, dims.gridW)[0];
     const op = stickerOps(buildExportPlan(baseInput({ stickers, aspects })).ops)[0];
     expect(op.box.x).toBeCloseTo(dims.gridX + expected.x, 6);
     expect(op.box.y).toBeCloseTo(dims.gridY + expected.y, 6);

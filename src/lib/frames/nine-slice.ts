@@ -34,12 +34,18 @@ export type NineSlicePiece = {
  * on each side — so the corner cells are `slice × scale`, not `ink × scale`. Source rects tile
  * the sheet exactly (`l | period | r` × `t | period | b`, centre skipped); destination rects
  * tile the ring exactly.
+ *
+ * `sideW` (export only — the CSS path never passes it) overrides the destination width of the
+ * left and right columns, the canvas analogue of a per-side `border-image-width`: the PNG export
+ * stretches the side pixels so the ring can span the full 2160px post while still hugging the
+ * grid (M9-INSTAGRAM-PLAN decision 5). The corners stretch horizontally with their column.
  */
 export function nineSliceRects(
   spec: FrameSpec,
   w: number,
   h: number,
   scale: number,
+  sideW?: { l: number; r: number },
 ): NineSlicePiece[] {
   const { slice, period, sheetW, sheetH } = spec;
 
@@ -48,7 +54,9 @@ export function nineSliceRects(
   const sy = [0, slice.t, slice.t + period, sheetH];
 
   // Destination columns/rows: corners at their scaled slice size, the edges take the rest.
-  const dx = [0, slice.l * scale, w - slice.r * scale, w];
+  const left = sideW?.l ?? slice.l * scale;
+  const right = sideW?.r ?? slice.r * scale;
+  const dx = [0, left, w - right, w];
   const dy = [0, slice.t * scale, h - slice.b * scale, h];
 
   const tileW = period * scale;

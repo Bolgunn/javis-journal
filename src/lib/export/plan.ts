@@ -27,9 +27,14 @@ import { FRAMES, frameBoxInsets, frameScale } from "@/lib/frames/spec";
  * grid, rects equal the shared layout), never the constants.
  */
 export const EXPORT = {
-  /** Day-cell width in the export, px. 7·36 so `CELL_H = 216` is exact, and a full-cell stamp
-   *  (~252px) is ≈1:1 with its 256px thumb — "thumbnails included", literally and sharply. */
-  CELL_W: 252,
+  /**
+   * The post the month is laid out on — the INPUT, from which the cell size is derived
+   * (M9-INSTAGRAM-PLAN decision 5). A two-photo Instagram carousel: 2 × 1080×1350 (4:5, the
+   * tallest slide Instagram allows) side by side = one 2160×1350 panorama.
+   */
+  POST: { W: 2160, H: 1350 },
+  /** Each carousel slide's width — the post is cut at `x = SLICE_W`. */
+  SLICE_W: 1080,
   /** Weekday-header band height, px. */
   HEADER_H: 48,
   /** Weekday label font size, px. */
@@ -38,7 +43,7 @@ export const EXPORT = {
   TITLE_BAND_H: 104,
   /** Title font size, px (Georgia — a system serif, always on her iPhone; decision 10). */
   TITLE_FONT: 60,
-  /** Paper margin around the whole artifact, px — a little breathing room off the PNG edge. */
+  /** Minimum paper margin around the framed box, px — breathing room off the PNG edge. */
   OUTER_MARGIN: 28,
   /** Grid hairline thickness, px (device-pixel snapped in the plan so it stays crisp). */
   HAIRLINE_W: 2,
@@ -47,12 +52,6 @@ export const EXPORT = {
   /** Day-number inset from the cell's top-left, as a fraction of the font — matches DayCell. */
   DAY_PAD_RATIO: 0.28,
 } as const;
-
-/** Cell height — the 7:6 box, derived, never re-invented. */
-export const EXPORT_CELL_H = EXPORT.CELL_W / CELL_ASPECT_RATIO; // 216
-/** The day-grid's own width/height (`7·cellW × 6·cellH`) — the rect stickers are normalized to. */
-export const EXPORT_GRID_W = EXPORT.CELL_W * 7; // 1764
-export const EXPORT_GRID_H = EXPORT_CELL_H * 6; // 1296
 
 /** A positioned, possibly-rotated image box in absolute canvas pixels. */
 export type PlacedBox = {
@@ -85,9 +84,11 @@ export type DrawOp =
   | { kind: "title"; text: string; cx: number; cy: number; fontPx: number };
 
 export type ExportPlan = {
-  /** Full PNG size, px. */
+  /** Full PNG size, px — always `EXPORT.POST`. */
   width: number;
   height: number;
+  /** Where the post is cut into its two carousel slides (`EXPORT.SLICE_W`). */
+  sliceW: number;
   /** The frame scale used for the ring + mat (`frameScale(gridWidth)` → ×4 at this resolution). */
   scale: number;
   /** The 9-slice tile sheet to load, or null when the frame is `'none'`. */
@@ -119,32 +120,65 @@ function snap(v: number): number {
 }
 
 /**
- * Dimensions + the framed box / grid origin for a frame and title choice. Split out so tests can
- * assert the size math directly, and so the sheet could preflight a size without the row data.
+ * The post's geometry for a frame and title choice — the cell size, the framed box, the grid
+ * origin. Split out so tests can assert the size math directly.
+ *
+ * The post size is fixed; the cells are what give (decision 5). The title band, margins, weekday
+ * header and the ring's top/bottom ring+mat come off the height, the ring's sides off the width,
+ * and `cellW` is the smaller of the two bounds at 8:5 — floored to whole px so the columns land
+ * on a steady pitch. Whatever is left over is absorbed:
+ *   • horizontally, by the ring: it spans the full post width and its side edges are drawn wider
+ *     by exactly the leftover (`sideStretch` per side), so the ring still hugs the grid and the
+ *     grid stays centred — which puts the cut at x = 1080 through the middle of column 4
+ *     (decision 6). With frame `'none'` the leftover is plain paper.
+ *   • vertically, by centring the title + framed box on the post.
  */
 export function exportDimensions(frame: SelectedFrame, includeTitle: boolean) {
-  const scale = frameScale(EXPORT_GRID_W); // ×4 at 1764px wide
-  const inset = frameBoxInsets(frame, scale); // per-side ring+mat, {w,h}; {0,0} for 'none'
-  const contentH = EXPORT.HEADER_H + EXPORT_GRID_H;
-  const framedW = EXPORT_GRID_W + 2 * inset.w;
-  const framedH = contentH + 2 * inset.h;
+  const { W, H } = EXPORT.POST;
+  const M = EXPORT.OUTER_MARGIN;
   const titleH = includeTitle ? EXPORT.TITLE_BAND_H : 0;
 
-  const width = framedW + 2 * EXPORT.OUTER_MARGIN;
-  const height = titleH + framedH + 2 * EXPORT.OUTER_MARGIN;
+  // The ring's scale is stepped off the grid width, as on screen. Any plausible grid on a 2160px
+  // post is >= 1024 wide, so this is x4 — asserted by a test, and needed before the cell math
+  // (the ring's inset depends on it).
+  const scale = frameScale(W - 2 * M);
+  const inset = frameBoxInsets(frame, scale); // per-side ring+mat, {w,h}; {0,0} for 'none'
 
-  const framedX = EXPORT.OUTER_MARGIN;
-  const framedY = EXPORT.OUTER_MARGIN + titleH;
-  // The header + grid begin inside the ring + mat.
-  const gridX = framedX + inset.w;
+  const availW = W - 2 * M - 2 * inset.w;
+  const availH = H - 2 * M - titleH - EXPORT.HEADER_H - 2 * inset.h;
+  const cellW = Math.max(
+    0,
+    Math.floor(Math.min(availW / 7, (availH / 6) * CELL_ASPECT_RATIO)),
+  );
+  const cellH = cellW / CELL_ASPECT_RATIO;
+  const gridW = cellW * 7;
+  const gridH = cellH * 6;
+
+  // Horizontal leftover, per side — the ring's side edges widen by exactly this.
+  const sideStretch = (availW - gridW) / 2;
+
+  const framedX = M;
+  const framedW = W - 2 * M;
+  const framedH = EXPORT.HEADER_H + gridH + 2 * inset.h;
+  // Vertical leftover: centre the title + framed box on the post.
+  const titleY = (H - titleH - framedH) / 2;
+  const framedY = titleY + titleH;
+
+  // The header + grid begin inside the ring + mat (and the stretch).
+  const gridX = framedX + inset.w + sideStretch;
   const headerY = framedY + inset.h;
   const gridY = headerY + EXPORT.HEADER_H;
 
   return {
     scale,
     inset,
-    width,
-    height,
+    width: W,
+    height: H,
+    cellW,
+    cellH,
+    gridW,
+    gridH,
+    sideStretch,
     framedX,
     framedY,
     framedW,
@@ -153,7 +187,18 @@ export function exportDimensions(frame: SelectedFrame, includeTitle: boolean) {
     gridY,
     headerY,
     titleH,
+    titleY,
   };
+}
+
+/**
+ * The destination width of one of the ring's side 9-slice columns once its edge is widened by
+ * `stretch`. The source column is `slice` px wide, of which the outer `ink` px are the ring itself
+ * (the surplus overhangs inward, transparent). Stretching the column so its INK band grows by
+ * exactly `stretch` keeps the paper mat between ring and grid as wide as it is on screen.
+ */
+export function stretchedSideW(slice: number, ink: number, scale: number, stretch: number): number {
+  return slice * (scale + stretch / ink);
 }
 
 /**
@@ -164,6 +209,7 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
   const { year, month, weekStart, frame, includeTitle, stampsByDate, stickers, aspects } = input;
   const dims = exportDimensions(frame, includeTitle);
   const { scale, width, height, framedX, framedY, framedW, framedH, gridX, gridY, headerY } = dims;
+  const { cellW, cellH, gridW, gridH, sideStretch } = dims;
 
   const ops: DrawOp[] = [];
 
@@ -174,7 +220,12 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
   //    is the exact seam the CSS `border-image` reads — one geometry, two renderers.
   const frameSrc = frame === "none" ? null : FRAMES[frame].src;
   if (frame !== "none") {
-    for (const piece of nineSliceRects(FRAMES[frame], framedW, framedH, scale)) {
+    const spec = FRAMES[frame];
+    const sideW = {
+      l: stretchedSideW(spec.slice.l, spec.ink.l, scale, sideStretch),
+      r: stretchedSideW(spec.slice.r, spec.ink.r, scale, sideStretch),
+    };
+    for (const piece of nineSliceRects(spec, framedW, framedH, scale, sideW)) {
       ops.push({
         kind: "frame",
         piece: {
@@ -190,14 +241,14 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
   cells.forEach((cell, i) => {
     const col = i % 7;
     const row = Math.floor(i / 7);
-    const x = gridX + col * EXPORT.CELL_W;
-    const y = gridY + row * EXPORT_CELL_H;
+    const x = gridX + col * cellW;
+    const y = gridY + row * cellH;
     ops.push({
       kind: "cell",
       x,
       y,
-      w: EXPORT.CELL_W,
-      h: EXPORT_CELL_H,
+      w: cellW,
+      h: cellH,
       blank: cell === null,
     });
   });
@@ -208,7 +259,7 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
     ops.push({
       kind: "weekday",
       text: text.toUpperCase(),
-      cx: gridX + col * EXPORT.CELL_W + EXPORT.CELL_W / 2,
+      cx: gridX + col * cellW + cellW / 2,
       cy: headerY + EXPORT.HEADER_H / 2,
       fontPx: EXPORT.WEEKDAY_FONT,
     });
@@ -219,17 +270,17 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
   const half = hw / 2;
   // Verticals: 8 lines, from the header top to the grid bottom.
   const vTop = headerY;
-  const vBottom = gridY + EXPORT_GRID_H;
+  const vBottom = gridY + gridH;
   for (let c = 0; c <= 7; c++) {
-    const lx = snap(gridX + c * EXPORT.CELL_W);
+    const lx = snap(gridX + c * cellW);
     ops.push({ kind: "hairline", x: lx - half, y: vTop, w: hw, h: vBottom - vTop });
   }
   // Horizontals: header top, header/grid seam, then each of the 6 grid rows' bottoms.
   const rowY = [headerY, gridY];
-  for (let r = 1; r <= 6; r++) rowY.push(gridY + r * EXPORT_CELL_H);
+  for (let r = 1; r <= 6; r++) rowY.push(gridY + r * cellH);
   for (const y of rowY) {
     const ly = snap(y);
-    ops.push({ kind: "hairline", x: gridX, y: ly - half, w: EXPORT_GRID_W, h: hw });
+    ops.push({ kind: "hairline", x: gridX, y: ly - half, w: gridW, h: hw });
   }
 
   // 6. Stamp thumbnails — every day's faithful mini-composition, through the SAME `stampBoxes`
@@ -241,9 +292,9 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
     if (!stamps || stamps.length === 0) return;
     const col = i % 7;
     const row = Math.floor(i / 7);
-    const cellX = gridX + col * EXPORT.CELL_W;
-    const cellY = gridY + row * EXPORT_CELL_H;
-    for (const b of stampBoxes(stamps, aspects, EXPORT.CELL_W)) {
+    const cellX = gridX + col * cellW;
+    const cellY = gridY + row * cellH;
+    for (const b of stampBoxes(stamps, aspects, cellW)) {
       ops.push({
         kind: "stamp",
         imageId: b.image_id,
@@ -265,9 +316,9 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
     if (cell === null) return;
     const col = i % 7;
     const row = Math.floor(i / 7);
-    const cellX = gridX + col * EXPORT.CELL_W;
-    const cellY = gridY + row * EXPORT_CELL_H;
-    const fontPx = Math.round(EXPORT.CELL_W * EXPORT.DAY_FONT_RATIO);
+    const cellX = gridX + col * cellW;
+    const cellY = gridY + row * cellH;
+    const fontPx = Math.round(cellW * EXPORT.DAY_FONT_RATIO);
     const pad = Math.round(fontPx * EXPORT.DAY_PAD_RATIO);
     const chip = fontPx * 1.9; // DayCell's minWidth/height
     ops.push({
@@ -281,7 +332,7 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
 
   // 8. Stickers — the top layer over the whole grid, through the SAME `stickerBoxes`, offset by
   //    the grid origin (the sticker coordinate box IS the day-grid bbox).
-  for (const b of stickerBoxes(stickers, aspects, EXPORT_GRID_W)) {
+  for (const b of stickerBoxes(stickers, aspects, gridW)) {
     ops.push({
       kind: "sticker",
       imageId: b.image_id,
@@ -303,12 +354,12 @@ export function buildExportPlan(input: ExportPlanInput): ExportPlan {
       kind: "title",
       text: `${MONTH_NAMES[month - 1]} ${year}`,
       cx: width / 2,
-      cy: EXPORT.OUTER_MARGIN + EXPORT.TITLE_BAND_H / 2,
+      cy: dims.titleY + EXPORT.TITLE_BAND_H / 2,
       fontPx: EXPORT.TITLE_FONT,
     });
   }
 
-  return { width, height, scale, frameSrc, ops };
+  return { width, height, sliceW: EXPORT.SLICE_W, scale, frameSrc, ops };
 }
 
 /** The image ids the export needs, split by which blob resolution `data.ts` should fetch. */

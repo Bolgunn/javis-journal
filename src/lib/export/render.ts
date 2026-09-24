@@ -1,11 +1,14 @@
 // M9 — the ONLY file in the export that touches a canvas. It consumes T1's pure draw-op plan +
 // T2's decoded bitmaps + the live CSS token values, and rasterizes them onto an `OffscreenCanvas`
-// (no mounted DOM node), then `convertToBlob()`s a PNG.
+// (no mounted DOM node), then `convertToBlob()`s a PNG — the full 2160×1350 post, plus its two
+// 1080×1350 carousel halves, each copied out of the one full canvas (M9-INSTAGRAM-PLAN
+// decision 5), so the halves are the full image's pixels by construction.
 //
 // TAINT SAFETY (M9-PLAN decision 8): `drawImage` is only ever handed an `ImageBitmap` decoded
 // from a same-origin/CORS-GET blob — never an `<img>` from a cross-origin signed URL. That is
 // what keeps the canvas untainted so `convertToBlob()` cannot throw `SecurityError`. A render
-// test asserts exactly this (the taint canary): every `drawImage` first-arg is an `ImageBitmap`.
+// test asserts exactly this (the taint canary): every `drawImage` first-arg on the post canvas is
+// an `ImageBitmap`, and the halves only ever copy from that (untainted) post canvas.
 //
 // Touches a canvas; no React, no Dexie.
 
@@ -109,8 +112,26 @@ function drawText(
   ctx.fillText(op.text, op.cx, op.cy);
 }
 
+/** The finished PNGs: the whole post, and its left/right carousel halves (left first). */
+export type ExportPngs = { full: Blob; halves: [Blob, Blob] };
+
+/** Copy one vertical strip of the post into its own canvas (a carousel slide). */
+function sliceCanvas(
+  post: OffscreenCanvas,
+  x: number,
+  w: number,
+  h: number,
+  canvasFactory: CanvasFactory,
+): OffscreenCanvas {
+  const canvas = canvasFactory(w, h);
+  const ctx = canvas.getContext("2d") as OffscreenCanvasRenderingContext2D | null;
+  if (!ctx) throw new Error("export: no 2D context");
+  ctx.drawImage(post, x, 0, w, h, 0, 0, w, h);
+  return canvas;
+}
+
 /**
- * Rasterize the plan to a PNG blob. Pixel art (the frame) is drawn with smoothing OFF for a crisp
+ * Rasterize the plan to PNG blobs — the full post and its two halves. Pixel art (the frame) is drawn with smoothing OFF for a crisp
  * nearest-neighbour ring; photos (stamps, stickers) with smoothing ON. A missing bitmap (an image
  * skipped by `data.ts` — offline and not on device) is simply not drawn; the PNG still succeeds.
  */
@@ -119,7 +140,7 @@ export async function renderExport(
   bitmaps: ExportBitmaps,
   tokens: ExportTokens,
   canvasFactory: CanvasFactory = defaultCanvasFactory,
-): Promise<Blob> {
+): Promise<ExportPngs> {
   const canvas = canvasFactory(plan.width, plan.height);
   const ctx = canvas.getContext("2d") as OffscreenCanvasRenderingContext2D | null;
   if (!ctx) throw new Error("export: no 2D context");
@@ -172,5 +193,10 @@ export async function renderExport(
     }
   }
 
-  return canvas.convertToBlob({ type: "image/png" });
+  const left = sliceCanvas(canvas, 0, plan.sliceW, plan.height, canvasFactory);
+  const right = sliceCanvas(canvas, plan.sliceW, plan.width - plan.sliceW, plan.height, canvasFactory);
+  const [full, a, b] = await Promise.all(
+    [canvas, left, right].map((c) => c.convertToBlob({ type: "image/png" })),
+  );
+  return { full, halves: [a, b] };
 }

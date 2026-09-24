@@ -12,30 +12,39 @@ const bitmap = (tag: string): FakeBitmap => ({ __bitmap: tag });
 
 type Call = { method: string; args: unknown[] };
 
-function recordingCanvas() {
-  const calls: Call[] = [];
-  const ctx = new Proxy(
-    {},
-    {
-      get(_t, prop: string) {
-        if (prop === "canvas") return canvas;
-        // Properties the code assigns to (fillStyle, font, …) must be settable no-ops.
-        return (...args: unknown[]) => {
-          calls.push({ method: prop, args });
-        };
-      },
-      set() {
-        return true;
-      },
-    },
-  ) as unknown as OffscreenCanvasRenderingContext2D;
+type Recorded = { w: number; h: number; canvas: OffscreenCanvas; calls: Call[] };
 
-  const canvas = {
-    getContext: () => ctx,
-    convertToBlob: async () => new Blob(["png"], { type: "image/png" }),
-  } as unknown as OffscreenCanvas;
+/** A canvas factory that hands out a fresh recording canvas per call, in creation order: the
+ *  post first, then its left and right halves. */
+function recordingFactory() {
+  const made: Recorded[] = [];
+  const factory = (w: number, h: number): OffscreenCanvas => {
+    const calls: Call[] = [];
+    const ctx = new Proxy(
+      {},
+      {
+        get(_t, prop: string) {
+          if (prop === "canvas") return canvas;
+          // Properties the code assigns to (fillStyle, font, …) must be settable no-ops.
+          return (...args: unknown[]) => {
+            calls.push({ method: prop, args });
+          };
+        },
+        set() {
+          return true;
+        },
+      },
+    ) as unknown as OffscreenCanvasRenderingContext2D;
 
-  return { canvas, calls };
+    const index = made.length;
+    const canvas = {
+      getContext: () => ctx,
+      convertToBlob: async () => new Blob([`png-${index}`], { type: "image/png" }),
+    } as unknown as OffscreenCanvas;
+    made.push({ w, h, canvas, calls });
+    return canvas;
+  };
+  return { factory, made, post: () => made[0] };
 }
 
 function stamp(over: Partial<Stamp>): Stamp {
@@ -115,20 +124,46 @@ const drawImageArgs = (calls: Call[]) =>
   calls.filter((c) => c.method === "drawImage").map((c) => c.args[0]);
 
 describe("renderExport", () => {
-  test("returns a PNG blob", async () => {
-    const { canvas } = recordingCanvas();
+  test("returns the full post and its two halves as PNG blobs", async () => {
+    const { factory, made } = recordingFactory();
     const plan = buildExportPlan(input());
-    const blob = await renderExport(plan, bitmaps(), TOKENS, () => canvas);
-    expect(blob).toBeInstanceOf(Blob);
-    expect(blob.type).toBe("image/png");
+    const out = await renderExport(plan, bitmaps(), TOKENS, factory);
+    for (const blob of [out.full, ...out.halves]) {
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob.type).toBe("image/png");
+    }
+    expect(await out.full.text()).toBe("png-0");
+    expect(await out.halves[0].text()).toBe("png-1"); // left first
+    expect(await out.halves[1].text()).toBe("png-2");
+    // One 2160×1350 post, then two 1080×1350 slides.
+    expect(made.map((m) => [m.w, m.h])).toEqual([
+      [2160, 1350],
+      [1080, 1350],
+      [1080, 1350],
+    ]);
+  });
+
+  test("each half is a straight copy of its side of the post — nothing redrawn", async () => {
+    const { factory, made } = recordingFactory();
+    const plan = buildExportPlan(input());
+    await renderExport(plan, bitmaps(), TOKENS, factory);
+    const post = made[0].canvas;
+    const [left, right] = [made[1], made[2]];
+    // The halves are the post's pixels by construction: a single 1:1 blit each, no other draws.
+    expect(left.calls).toEqual([
+      { method: "drawImage", args: [post, 0, 0, 1080, 1350, 0, 0, 1080, 1350] },
+    ]);
+    expect(right.calls).toEqual([
+      { method: "drawImage", args: [post, 1080, 0, 1080, 1350, 0, 0, 1080, 1350] },
+    ]);
   });
 
   test("draw-image sequence is frame → stamp → sticker", async () => {
-    const { canvas, calls } = recordingCanvas();
+    const { factory, post } = recordingFactory();
     const plan = buildExportPlan(input());
-    await renderExport(plan, bitmaps(), TOKENS, () => canvas);
+    await renderExport(plan, bitmaps(), TOKENS, factory);
 
-    const tags = drawImageArgs(calls).map((a) => (a as FakeBitmap).__bitmap);
+    const tags = drawImageArgs(post().calls).map((a) => (a as FakeBitmap).__bitmap);
     // Frame is 8 ring pieces (some edges tiled → many drawImage calls), then the stamp, then the
     // sticker. Reduce to first-appearance order.
     const order = tags.filter((t, i) => tags.indexOf(t) === i);
@@ -136,11 +171,11 @@ describe("renderExport", () => {
   });
 
   test("taint canary: every drawImage first-arg is a decoded bitmap, never a URL or <img>", async () => {
-    const { canvas, calls } = recordingCanvas();
+    const { factory, made, post } = recordingFactory();
     const plan = buildExportPlan(input());
-    await renderExport(plan, bitmaps(), TOKENS, () => canvas);
+    await renderExport(plan, bitmaps(), TOKENS, factory);
 
-    const args = drawImageArgs(calls);
+    const args = drawImageArgs(post().calls);
     expect(args.length).toBeGreaterThan(0); // guards against a vacuous canary
     for (const arg of args) {
       // It is one of our tagged fake bitmaps — an object with __bitmap — not a string/URL/element.
@@ -148,38 +183,38 @@ describe("renderExport", () => {
       expect(arg).toHaveProperty("__bitmap");
       expect(typeof (arg as FakeBitmap).__bitmap).toBe("string");
     }
+    // The halves copy from nothing but the (untainted) post canvas.
+    for (const half of made.slice(1)) {
+      for (const arg of drawImageArgs(half.calls)) expect(arg).toBe(post().canvas);
+    }
   });
 
   test("no today disc: the renderer never strokes/fills a circle (arc is never called)", async () => {
-    const { canvas, calls } = recordingCanvas();
+    const { factory, made } = recordingFactory();
     const plan = buildExportPlan(input());
-    await renderExport(plan, bitmaps(), TOKENS, () => canvas);
+    await renderExport(plan, bitmaps(), TOKENS, factory);
+    const calls = made.flatMap((m) => m.calls);
     expect(calls.some((c) => c.method === "arc" || c.method === "ellipse")).toBe(false);
   });
 
   test("a missing bitmap (skipped image) is not drawn and does not throw", async () => {
-    const { canvas, calls } = recordingCanvas();
+    const { factory, post } = recordingFactory();
     const plan = buildExportPlan(input());
     // No stamp bitmap available (offline + not on device).
-    const blob = await renderExport(
-      plan,
-      bitmaps({ stamps: new Map() }),
-      TOKENS,
-      () => canvas,
-    );
-    expect(blob).toBeInstanceOf(Blob);
-    const tags = drawImageArgs(calls).map((a) => (a as FakeBitmap).__bitmap);
+    const out = await renderExport(plan, bitmaps({ stamps: new Map() }), TOKENS, factory);
+    expect(out.full).toBeInstanceOf(Blob);
+    const tags = drawImageArgs(post().calls).map((a) => (a as FakeBitmap).__bitmap);
     expect(tags).not.toContain("stamp");
     expect(tags).toContain("sticker");
   });
 
   test("frame 'none': no frame bitmap is drawn, grid still renders", async () => {
-    const { canvas, calls } = recordingCanvas();
+    const { factory, post } = recordingFactory();
     const plan = buildExportPlan(input({ frame: "none" }));
-    await renderExport(plan, bitmaps({ frame: null }), TOKENS, () => canvas);
-    const tags = drawImageArgs(calls).map((a) => (a as FakeBitmap).__bitmap);
+    await renderExport(plan, bitmaps({ frame: null }), TOKENS, factory);
+    const tags = drawImageArgs(post().calls).map((a) => (a as FakeBitmap).__bitmap);
     expect(tags).not.toContain("frame");
     // A cell fill still happened.
-    expect(calls.some((c) => c.method === "fillRect")).toBe(true);
+    expect(post().calls.some((c) => c.method === "fillRect")).toBe(true);
   });
 });
