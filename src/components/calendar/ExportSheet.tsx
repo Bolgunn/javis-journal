@@ -3,26 +3,23 @@
 // M9 — the export bottom sheet (US-12). Same overlay posture as the M7 sticker tray / the
 // calendar menu: a sheet over the calendar so she keeps seeing the month she is saving. One
 // choice (include the month/year title band, default ON — a per-export taste, not worth a
-// persisted profile field) and TWO explicit actions:
-//   • Share (left, secondary): always the native share sheet (Messages / AirDrop / Save to Photos).
-//   • Save  (right, primary):  always a direct download, never the share sheet.
-// Neither ever silently becomes the other — that crossover was the confusing part of the old
-// single button. Share only renders where file-sharing is actually supported (`canShareFiles`);
-// where it isn't, Save spans the full width.
+// persisted profile field) and TWO downloads of the same 2160×1350 Instagram post
+// (M9-INSTAGRAM-PLAN decision 7):
+//   • Full image (left, secondary): the whole post, one file.
+//   • 2 halves   (right, primary):  the two 1080×1350 carousel slides, left then right — what she
+//     actually posts; swiped, they join back into the one wide month.
+// Both are plain `<a download>`s; there is no share sheet any more.
 //
 // Async states: one shared lock (`preparing`) disables both while either works; the tapped button
-// shows "Preparing…". On success the sheet closes; on a share DISMISSAL it stays open (she can
-// Save instead); a failure keeps the sheet open with a tailored inline message — compose failures
-// and share failures read differently, and neither falls back to the other action.
+// shows "Preparing…". On success the sheet closes; a failure keeps it open with an inline message.
 
 import { useEffect, useState } from "react";
 
 import type { SelectedFrame } from "@/lib/db/types";
 import { composeMonthPng } from "@/lib/export/exportMonthPng";
-import { canShareFiles, downloadBlob, exportFilename, shareBlob } from "@/lib/export/save";
+import { downloadBlob, exportFilename } from "@/lib/export/save";
 
-type Preparing = "share" | "save" | null;
-type ErrorKind = "compose" | "share" | null;
+type Preparing = "full" | "halves" | null;
 
 export function ExportSheet({
   year,
@@ -40,15 +37,7 @@ export function ExportSheet({
 }) {
   const [includeTitle, setIncludeTitle] = useState(true);
   const [preparing, setPreparing] = useState<Preparing>(null);
-  const [error, setError] = useState<ErrorKind>(null);
-  // Feature-detect after mount (navigator is client-only; default hidden avoids an SSR mismatch
-  // and a flash of a dead button). On her iPhone this flips true immediately.
-  const [shareable, setShareable] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time capability read on mount
-    setShareable(canShareFiles());
-  }, []);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -60,43 +49,23 @@ export function ExportSheet({
 
   const busy = preparing !== null;
 
-  /** Compose once for this tap; the title toggle affects the output, so we never cache. */
-  const compose = async () =>
-    (await composeMonthPng(year, month, weekStart, frame, includeTitle)).full;
-
-  const onShare = async () => {
+  /** Compose once per tap (the title toggle affects the output, so we never cache), then save. */
+  const run = async (which: "full" | "halves") => {
     if (busy) return;
-    setPreparing("share");
-    setError(null);
-    let blob: Blob;
+    setPreparing(which);
+    setFailed(false);
     try {
-      blob = await compose();
-    } catch {
-      setPreparing(null);
-      setError("compose");
-      return;
-    }
-    try {
-      const result = await shareBlob(blob, exportFilename(year, month));
-      if (result === "shared") onClose();
-      else setPreparing(null); // dismissed — keep the sheet open so she can Save instead
-    } catch {
-      setPreparing(null);
-      setError("share");
-    }
-  };
-
-  const onSave = async () => {
-    if (busy) return;
-    setPreparing("save");
-    setError(null);
-    try {
-      const blob = await compose();
-      downloadBlob(blob, exportFilename(year, month));
+      const pngs = await composeMonthPng(year, month, weekStart, frame, includeTitle);
+      if (which === "full") {
+        downloadBlob(pngs.full, exportFilename(year, month));
+      } else {
+        downloadBlob(pngs.halves[0], exportFilename(year, month, 1));
+        downloadBlob(pngs.halves[1], exportFilename(year, month, 2));
+      }
       onClose();
     } catch {
       setPreparing(null);
-      setError("compose");
+      setFailed(true);
     }
   };
 
@@ -139,33 +108,29 @@ export function ExportSheet({
           </span>
         </button>
 
-        {error ? (
+        {failed ? (
           <p className="mt-3 text-center text-sm text-accent">
-            {error === "share"
-              ? "Couldn't share — try Save instead."
-              : "Couldn't create the image — try again."}
+            Couldn&apos;t create the image — try again.
           </p>
         ) : null}
 
         <div className="mt-4 flex gap-3">
-          {shareable ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onShare()}
-              className="flex-1 rounded-control border border-line bg-paper px-4 py-3 text-center text-sm font-bold text-ink transition-opacity disabled:opacity-60"
-            >
-              {preparing === "share" ? "Preparing…" : "Share"}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void run("full")}
+            className="flex-1 rounded-control border border-line bg-paper px-4 py-3 text-center text-sm font-bold text-ink transition-opacity disabled:opacity-60"
+          >
+            {preparing === "full" ? "Preparing…" : "Full image"}
+          </button>
 
           <button
             type="button"
             disabled={busy}
-            onClick={() => void onSave()}
+            onClick={() => void run("halves")}
             className="flex-1 rounded-control bg-accent px-4 py-3 text-center text-sm font-bold text-ink transition-opacity disabled:opacity-60"
           >
-            {preparing === "save" ? "Preparing…" : "Save"}
+            {preparing === "halves" ? "Preparing…" : "2 halves"}
           </button>
         </div>
       </div>
