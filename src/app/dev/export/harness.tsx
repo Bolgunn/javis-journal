@@ -7,7 +7,8 @@ import type { Entry, ImageRow, PlacedSticker, SelectedFrame, Stamp } from "@/lib
 import type { ImageBlobRow } from "@/lib/db/image-types";
 import { FRAME_IDS, FRAMES } from "@/lib/frames/spec";
 import { composeMonthPng } from "@/lib/export/exportMonthPng";
-import { downloadBlob, exportFilename, shareBlob } from "@/lib/export/save";
+import type { ExportPngs } from "@/lib/export/exportMonthPng";
+import { downloadBlob, exportFilename } from "@/lib/export/save";
 
 const YEAR = 2026;
 const MONTH = 7;
@@ -186,7 +187,8 @@ async function clearMonth() {
 export function ExportHarness() {
   const [frame, setFrame] = useState<SelectedFrame>("rse");
   const [includeTitle, setIncludeTitle] = useState(true);
-  const [src, setSrc] = useState<string | null>(null);
+  /** Object URLs for [full, left half, right half] — revoked on every re-render. */
+  const [srcs, setSrcs] = useState<string[] | null>(null);
   const [dims, setDims] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -195,13 +197,20 @@ export function ExportHarness() {
     setBusy(true);
     setErr(null);
     try {
-      const { full: blob } = await composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle);
-      const bmp = await createImageBitmap(blob);
-      setDims(`${bmp.width}×${bmp.height}px · ${(blob.size / 1024).toFixed(0)} KB`);
-      bmp.close();
-      setSrc((old) => {
-        if (old) URL.revokeObjectURL(old);
-        return URL.createObjectURL(blob);
+      const pngs: ExportPngs = await composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle);
+      const blobs = [pngs.full, ...pngs.halves];
+      const sizes = await Promise.all(
+        blobs.map(async (b) => {
+          const bmp = await createImageBitmap(b);
+          const label = `${bmp.width}×${bmp.height}`;
+          bmp.close();
+          return `${label} (${(b.size / 1024).toFixed(0)} KB)`;
+        }),
+      );
+      setDims(`full ${sizes[0]} · halves ${sizes[1]} + ${sizes[2]}`);
+      setSrcs((old) => {
+        old?.forEach((u) => URL.revokeObjectURL(u));
+        return blobs.map((b) => URL.createObjectURL(b));
       });
     } catch (e) {
       setErr(String(e));
@@ -268,31 +277,32 @@ export function ExportHarness() {
         >
           Re-render
         </button>
-        {/* The two real save paths, exercised independently — this is where the iOS
-            download-vs-Save-to-Photos behaviour gets checked on the phone. */}
+        {/* The sheet's two real downloads, exercised independently — this is where the
+            iOS "second download blocked?" Tier-2 check happens on the phone. */}
         <button
           type="button"
           onClick={() =>
-            void composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle).then((b) =>
-              shareBlob(b.full, exportFilename(YEAR, MONTH)),
+            void composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle).then((p) =>
+              downloadBlob(p.full, exportFilename(YEAR, MONTH)),
             )
           }
           disabled={busy}
           className="rounded-control border border-line px-3 py-1.5 text-sm font-bold disabled:opacity-60"
         >
-          Share (share sheet)
+          Full image
         </button>
         <button
           type="button"
           onClick={() =>
-            void composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle).then((b) =>
-              downloadBlob(b.full, exportFilename(YEAR, MONTH)),
-            )
+            void composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle).then((p) => {
+              downloadBlob(p.halves[0], exportFilename(YEAR, MONTH, 1));
+              downloadBlob(p.halves[1], exportFilename(YEAR, MONTH, 2));
+            })
           }
           disabled={busy}
           className="rounded-control border border-line px-3 py-1.5 text-sm font-bold disabled:opacity-60"
         >
-          Save (download)
+          2 halves
         </button>
       </div>
 
@@ -301,17 +311,28 @@ export function ExportHarness() {
         {err ? <span className="text-accent"> — {err}</span> : null}
       </p>
 
-      {src ? (
-        <div className="mt-4">
-          <a href={src} download={`javis-journal-${YEAR}-07.png`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={src}
-              alt="Exported month PNG"
-              className="max-w-full rounded-card border border-line shadow-sm"
-            />
-          </a>
-          <p className="mt-1 text-xs text-muted">Tap the image to download it.</p>
+      {srcs ? (
+        <div className="mt-4 space-y-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={srcs[0]}
+            alt="Exported month — the full 2160×1350 post"
+            className="max-w-full rounded-card border border-line shadow-sm"
+          />
+          <p className="text-xs text-muted">
+            The two carousel slides, with a gap at the cut (x = 1080) — swiped, they join:
+          </p>
+          <div className="flex max-w-full gap-2">
+            {srcs.slice(1).map((u, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={u}
+                src={u}
+                alt={`Carousel slide ${i + 1}`}
+                className="min-w-0 flex-1 rounded-card border border-line shadow-sm"
+              />
+            ))}
+          </div>
         </div>
       ) : null}
     </main>
