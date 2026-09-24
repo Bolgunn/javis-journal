@@ -225,6 +225,15 @@ As Javi, I want to save my calendar as an image, so that I can keep or share it.
 - Given a framed month, when exported, then the applied frame, stickers, and thumbnails are included.
 - Given the export, when it runs, then it does not block or freeze the editor.
 
+**Revised by the Instagram addendum** (`plans/M9-INSTAGRAM-PLAN.md`, planned — not yet built).
+She posts each month as a two-photo Instagram carousel, so the day cells become **8:5 app-wide**
+and the export is laid out on a fixed 2160×1350 post:
+- Given the export sheet, when she taps **Full image**, then one 2160×1350 PNG downloads.
+- Given the export sheet, when she taps **2 halves**, then two 1080×1350 PNGs download (left
+  first), and swiped side by side on Instagram they join into the full image.
+- Given the export, when rendered, then the calendar is the same 8:5 geometry as on screen, and
+  the frame ring's side edges stretch only to absorb the leftover width.
+
 ### US-13 — Long-run stability (no freeze)
 As Javi, I want the app to stay fast after months of daily use, so that it never freezes like the old one.
 

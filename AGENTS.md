@@ -141,6 +141,15 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
       The export target is M8's `data-month-frame` box, so frame + stickers + thumbs come along and
       today's disc is deliberately **not** drawn. Merged via PR #2; dev harness at `/dev/export`.
       Tier-2 (real-device) is an owner gate.
+- [ ] **M9 addendum — Instagram two-photo post (US-12)** — *planned, not built.* She posts
+      each month as a 2-photo Instagram carousel (2 × 1080×1350 = one 2160×1350 image), so the
+      day cells go **7:6 → 8:5 app-wide** (`CELL_ASPECT_RATIO`; the sticker box follows, 49/36 →
+      64/25), the close-up divisor 2.5 → 1.8, and the export is laid out on a fixed 2160×1350
+      post with **Full image** + **2 halves** download buttons (Share removed). Existing
+      stamps/stickers are rewritten `scale × 35/48` by one guarded SQL migration run **after**
+      the deploy (no Dexie migration — sync carries it), and preview builds refuse stamp/sticker
+      writes. Plan + rollout runbook: `plans/M9-INSTAGRAM-PLAN.md`. Until it ships, the 7:6 /
+      49/36 figures below are still the truth.
 - [ ] M10 — Stability gate + polish + ship (US-13 hard gate, US-14). Built but **not merged**:
       5 commits on `m10-ship` (cut-sound module + Stamper snip + mute toggle, the long-run tour at
       `/dev/longrun`, the offline hint) sit in **draft PR #6**, rebased and green. Parked on
@@ -185,7 +194,7 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
   `border-image` does not apply to canvas), `style.ts` (`frameCss`). The ring itself is
   `src/components/calendar/FramedGrid.tsx` (`data-month-frame` — M9's export target).
 - `src/lib/calendar/` — pure calendar geometry: `month-grid.ts` (ALG-5, today/bounds/date
-  helpers), `fit.ts` (shared 7:6 cell-fit model, `CELL_ASPECT`) + `pinch.ts` (the pinch-to-switch
+  helpers), `fit.ts` (shared 7:6 cell-fit model — 8:5 once the Instagram addendum ships, `CELL_ASPECT`) + `pinch.ts` (the pinch-to-switch
   decision, incl. the M6 pinch-isolation rule). No React, no Dexie.
 - `src/lib/gestures/` — the **shared** direct-manipulation layer (M7): `machine.ts`
   (`TransformGestures` + the `Surface` its caller injects — one state machine and one set of
@@ -194,10 +203,10 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
 - `src/lib/day/` — the day editor's pure layer: `place.ts` (ALG-8 + the single `PLACEMENT`
   constants object + every clamp), `layout.ts` (`stampBoxes` — the one composition function the
   day page, the calendar cell and the M9 export all share), `hit.ts`, `gestures.ts` (the day
-  surface: the 7:6 page).
+  surface: the 7:6 page — 8:5 after the Instagram addendum).
   No React, no Dexie. `src/components/day/` — `DayPage`, `DayStamp`, `UndoToast`, `AddStampFlow`.
 - `src/lib/sticker/` — the sticker pure layer (M7): `place.ts` (the single `STICKER` constants
-  object, the 49/36 grid box + its clamps, tap-placement + cascade + the 50-per-month cap),
+  object, the 49/36 grid box (64/25 after the Instagram addendum) + its clamps, tap-placement + cascade + the 50-per-month cap),
   `layout.ts` (`stickerBoxes`), `cell.ts` (which day a point lands on — the tap-through rule),
   `gestures.ts` (the sticker surface), `seed.ts`/`seeds.ts` (the 3 seeded stickers, deterministic
   ids). `src/components/sticker/` — `StickerLayer`, `StickerTray`.
