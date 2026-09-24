@@ -291,19 +291,22 @@ export function ExportHarness() {
         >
           Full image
         </button>
-        <button
-          type="button"
-          onClick={() =>
-            void composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle).then((p) => {
-              downloadBlob(p.halves[0], exportFilename(YEAR, MONTH, 1));
-              downloadBlob(p.halves[1], exportFilename(YEAR, MONTH, 2));
-            })
-          }
-          disabled={busy}
-          className="rounded-control border border-line px-3 py-1.5 text-sm font-bold disabled:opacity-60"
-        >
-          2 halves
-        </button>
+        {/* One download per tap — iPhone Safari keeps only the last of two from one tap. */}
+        {([1, 2] as const).map((part) => (
+          <button
+            key={part}
+            type="button"
+            onClick={() =>
+              void composeMonthPng(YEAR, MONTH, WEEK_START, frame, includeTitle).then((p) =>
+                downloadBlob(p.halves[part - 1], exportFilename(YEAR, MONTH, part)),
+              )
+            }
+            disabled={busy}
+            className="rounded-control border border-line px-3 py-1.5 text-sm font-bold disabled:opacity-60"
+          >
+            Half {part}
+          </button>
+        ))}
       </div>
 
       <p className="mt-3 text-xs text-muted">

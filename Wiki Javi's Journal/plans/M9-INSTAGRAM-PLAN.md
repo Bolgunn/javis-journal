@@ -222,6 +222,10 @@ Built on `feat/instagram-post`, one commit per task. Where the build had to depa
   already shows those); the other seven writes no-op / return null, which every caller already
   treats as "nothing written". The image a refused cut ingested is still uploaded (harmless: the
   images table has no coordinate space).
+- **The decision-7 fallback was needed.** On Javi's iPhone only the second of the two halves
+  downloaded (Safari keeps the last download fired from one tap). "2 halves" now downloads the
+  left half, holds the right one, and becomes "Download 2nd half" for its own tap — no second
+  compose. Changing the title toggle or taking the full image drops the held half.
 - **Stamp thumbs are drawn slightly larger than 1:1 in the PNG**: cells are ~289px wide now (were
   252), from the same 256px thumbs.
 
