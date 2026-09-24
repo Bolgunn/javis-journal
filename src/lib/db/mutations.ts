@@ -1,9 +1,13 @@
 // The calendar's only write path. Mirrors the read seam (queries.ts): components
 // never touch Dexie or Supabase directly. Writes go local-first + through the M2
 // outbox (`markDirty` schedules the debounced flush); the sync engine pushes them.
+//
+// On a PR preview every stamp and sticker write is refused (`editingLocked`, see
+// preview-guard.ts): the preview runs against production and pushes whole rows.
 "use client";
 
 import { db } from "@/lib/db";
+import { EDITING_LOCKED_NOTE, editingLocked } from "@/lib/db/preview-guard";
 import type {
   Entry,
   MaskType,
@@ -117,6 +121,8 @@ export async function createStampOnDay(
   imageId: string,
   maskType: MaskType,
 ): Promise<Stamp | null> {
+  // Previews never write stamps (decision 9). Thrown, not a silent null: the Stamper shows it.
+  if (editingLocked()) throw new DayWriteError(EDITING_LOCKED_NOTE);
   // Read the baked image OUTSIDE the transaction: it gives us both the aspect that ALG-8 needs
   // and the owning user_id (so a cut works offline, with no auth round-trip).
   const image = await db.images.get(imageId);
@@ -194,6 +200,7 @@ export type StampPatch = Partial<
  * gesture-end** — never per animation frame. Bumps `updated_at` so LWW resolves it everywhere.
  */
 export async function updateStamp(id: string, patch: StampPatch): Promise<void> {
+  if (editingLocked()) return;
   const now = new Date().toISOString();
   await db.transaction("rw", db.stamps, db.sync_outbox, async () => {
     const row = await db.stamps.get(id);
@@ -211,6 +218,7 @@ export async function updateStamp(id: string, patch: StampPatch): Promise<void> 
  * survives an empty day — the calendar filters tombstones, so the day just renders empty.
  */
 export async function deleteStamp(id: string): Promise<number | null> {
+  if (editingLocked()) return null;
   const now = new Date().toISOString();
   const layerOrder = await db.transaction(
     "rw",
@@ -233,6 +241,7 @@ export async function deleteStamp(id: string): Promise<number | null> {
  * device) and restore the original `layer_order` — the stamp comes back exactly where it was.
  */
 export async function restoreStamp(id: string, layerOrder: number): Promise<void> {
+  if (editingLocked()) return;
   const now = new Date().toISOString();
   await db.transaction("rw", db.stamps, db.sync_outbox, async () => {
     const row = await db.stamps.get(id);
@@ -268,6 +277,7 @@ export async function placeSticker(
   stickerAssetId: string | null,
   wanted: Point,
 ): Promise<PlacedSticker | null> {
+  if (editingLocked()) return null; // previews never write stickers (decision 9)
   const image = await db.images.get(imageId);
   if (!image) {
     throw new DayWriteError(`Cannot place a sticker: image ${imageId} is not on this device.`);
@@ -321,6 +331,7 @@ export type StickerPatch = Partial<
 
 /** Commit one sticker gesture — once, on gesture-end. Never per animation frame. */
 export async function updatePlacedSticker(id: string, patch: StickerPatch): Promise<void> {
+  if (editingLocked()) return;
   const now = new Date().toISOString();
   await db.transaction("rw", db.placed_stickers, db.sync_outbox, async () => {
     const row = await db.placed_stickers.get(id);
@@ -336,6 +347,7 @@ export async function updatePlacedSticker(id: string, patch: StickerPatch): Prom
  * place** rather than to the top. (Deleting a placed instance never touches the tray.)
  */
 export async function deletePlacedSticker(id: string): Promise<number | null> {
+  if (editingLocked()) return null;
   const now = new Date().toISOString();
   const layerOrder = await db.transaction(
     "rw",
@@ -355,6 +367,7 @@ export async function deletePlacedSticker(id: string): Promise<number | null> {
 
 /** Undo: clear the tombstone with a NEWER `updated_at` (so it wins by LWW) at its old layer. */
 export async function restorePlacedSticker(id: string, layerOrder: number): Promise<void> {
+  if (editingLocked()) return;
   const now = new Date().toISOString();
   await db.transaction("rw", db.placed_stickers, db.sync_outbox, async () => {
     const row = await db.placed_stickers.get(id);
