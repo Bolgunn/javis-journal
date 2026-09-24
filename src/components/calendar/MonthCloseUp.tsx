@@ -12,7 +12,7 @@ import type { MonthViewProps } from "./MonthView";
 const SCROLL_PAD = 24; // matches the px-6 inner padding of the scroller (US-2 clamp)
 
 /**
- * Close-up (home) view: column-major day flow, ~2.5 columns visible at rest, free
+ * Close-up (home) view: column-major day flow, ~1.8 columns visible at rest, free
  * horizontal scroll with the scrollbar hidden. The US-2 clamp is the scroller's
  * fixed horizontal padding + content bounds — the outermost columns rest a fixed
  * margin from the edge and the scroll can't run past them.
