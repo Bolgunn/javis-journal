@@ -4,7 +4,7 @@
 // `src/lib/gestures/machine.ts` and is shared with the calendar's sticker layer, so the
 // long-press gate, the 8px slop, the 45° snap-on-release, the wheel-debounce commit, the
 // desktop accelerators, and the one-write-per-gesture rule exist in exactly one place. All this
-// file supplies is the DAY SURFACE: the 7:6 page and the clamps that keep a stamp inside it.
+// file supplies is the DAY SURFACE: the 8:5 page and the clamps that keep a stamp inside it.
 //
 // The public API is deliberately unchanged (same class name, same methods, same callbacks) —
 // M6's suite is the acceptance test for the extraction.
@@ -32,7 +32,7 @@ export {
 
 import type { GestureCallbacks } from "@/lib/gestures/machine";
 
-/** The day page: a 7:6 box, with a stamp clamped inside it at every rotation. */
+/** The day page: an 8:5 box, with a stamp clamped inside it at every rotation. */
 const DAY_SURFACE: Surface<StampBox> = {
   aspect: PAGE_ASPECT,
   clampScale: (scale, aspect, rotationDeg) => clampScale(scale, aspect, rotationDeg),

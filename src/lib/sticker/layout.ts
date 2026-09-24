@@ -16,7 +16,7 @@ export type StickerBox = Box & {
   y: number;
 };
 
-/** Grid height for a given grid width — the 49/36 box, never re-derived elsewhere. */
+/** Grid height for a given grid width — the 28/15 box (GRID_ASPECT), never re-derived elsewhere. */
 export function gridHeight(gridW: number): number {
   return gridW / GRID_ASPECT;
 }
@@ -55,7 +55,7 @@ export function applyLive(
 
 /**
  * Compose a month's sticker layer: its live stickers, back-to-front, as pixel boxes inside a
- * `gridW`-wide 49/36 grid box. `scale` is the sticker's width as a fraction of the grid width;
+ * `gridW`-wide GRID_ASPECT grid box. `scale` is the sticker's width as a fraction of the grid width;
  * the height follows from the image's own aspect.
  */
 export function stickerBoxes(

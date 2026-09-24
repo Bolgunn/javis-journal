@@ -48,8 +48,8 @@ function sticker(over: Partial<PlacedSticker> = {}): PlacedSticker {
 
 describe("the grid box", () => {
   test("its aspect is DERIVED from the cell's (7·cellW / 6·cellH), never hardcoded", () => {
-    expect(GRID_ASPECT).toBeCloseTo(CELL_ASPECT_RATIO * CELL_ASPECT_RATIO, 10);
-    expect(GRID_ASPECT).toBeCloseTo(49 / 36, 10);
+    expect(GRID_ASPECT).toBeCloseTo((7 * CELL_ASPECT_RATIO) / 6, 10);
+    expect(GRID_ASPECT).toBeCloseTo(28 / 15, 10);
   });
 });
 

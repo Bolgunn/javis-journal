@@ -2,7 +2,7 @@
 // need. Pure math: no React, no Dexie, no DOM.
 //
 // The coordinate model (M6, load-bearing):
-//   - The day page IS the calendar cell zoomed — the same fixed 7:6 box (CELL_ASPECT).
+//   - The day page IS the calendar cell zoomed — the same fixed 8:5 box (CELL_ASPECT).
 //   - `pos_x`/`pos_y` ∈ [0,1] are the stamp's CENTER, as fractions of the page's width and
 //     height respectively.
 //   - `scale` is the stamp's WIDTH as a fraction of the page's WIDTH. Its height follows from
@@ -35,8 +35,9 @@ export const PLACEMENT = {
   CASCADE: 0.1,
   /** A day holds at most this many live stamps (also enforced by the Postgres trigger). */
   MAX_STAMPS: 3,
-  /** A stamp can never be pinched smaller than this fraction of the page's width. */
-  MIN_SCALE: 0.12,
+  /** A stamp can never be pinched smaller than this fraction of the page's width. (0.12 at the
+   *  old 7:6 page; × 35/48 keeps the same smallest stamp relative to the page's height.) */
+  MIN_SCALE: 0.0875,
   /** Rotation is snapped to multiples of this on gesture-end (8 legal values). */
   SNAP_DEG: 45,
 } as const;

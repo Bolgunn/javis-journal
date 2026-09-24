@@ -27,7 +27,7 @@ describe("computeCellW (fit model)", () => {
     const m = { availW: 1600, availH: 700, titleH: 48, headerH: 28 };
     const usableH = m.availH - GUTTER * 2;
     const overhead = m.titleH + TITLE_GRID_GAP + m.headerH;
-    const heightBoundW = Math.floor(((usableH - overhead) / 6) * (7 / 6));
+    const heightBoundW = Math.floor(((usableH - overhead) / 6) * CELL_ASPECT_RATIO);
     expect(computeCellW("full-month", m)).toBe(heightBoundW);
     // And it's smaller than the width-bound candidate (1600-48)/7.
     expect(heightBoundW).toBeLessThan(Math.floor((1600 - GUTTER * 2) / 7));
@@ -121,7 +121,7 @@ describe("computeCellW with an M8 frame", () => {
   test("the TOP ring edge is charged — there is no gutter above it, the title is", () => {
     // Height-bound (desktop full-month). The bottom edge overhangs into the gutter like the
     // sides do; the top edge cannot, so it costs real height.
-    const bare = { availW: 1440, availH: 900, ...CHROME };
+    const bare = { availW: 1920, availH: 900, ...CHROME };
     expect(computeCellW("full-month", { ...bare, frameH: 20 })).toBeLessThan(
       computeCellW("full-month", bare),
     );

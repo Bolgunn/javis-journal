@@ -76,7 +76,7 @@ describe("placeStamp (ALG-8)", () => {
     }
   });
 
-  test("every placed stamp is fully inside the 7:6 page — the cascade clamp pulls it back", () => {
+  test("every placed stamp is fully inside the 8:5 page — the cascade clamp pulls it back", () => {
     for (const aspect of ASPECTS) {
       for (const s of fill(3, aspect)) {
         expect(

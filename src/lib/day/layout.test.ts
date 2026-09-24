@@ -36,7 +36,7 @@ describe("stampBoxes", () => {
     expect(box.h).toBeCloseTo(350 / (3 / 4), 6);
   });
 
-  test("pos is the CENTER, normalized to the 7:6 page", () => {
+  test("pos is the CENTER, normalized to the 8:5 page", () => {
     const pageW = 700;
     const [box] = stampBoxes([stamp({ pos_x: 0.5, pos_y: 0.5, scale: 0.5 })], aspects, pageW);
     expect(box.cx).toBeCloseTo(pageW / 2, 6);
@@ -73,7 +73,7 @@ describe("stampBoxes", () => {
     expect(boxes.map((b) => b.id)).toEqual(["bottom", "top"]);
   });
 
-  test("the page is 7:6", () => {
+  test("the page is 8:5", () => {
     expect(700 / pageHeight(700)).toBeCloseTo(PAGE_ASPECT, 9);
   });
 });

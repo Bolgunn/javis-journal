@@ -43,7 +43,7 @@ export const EXPORT = {
   /** Grid hairline thickness, px (device-pixel snapped in the plan so it stays crisp). */
   HAIRLINE_W: 2,
   /** Day-number size as a fraction of the cell width — matches DayCell's `CHIP_FONT_RATIO`. */
-  DAY_FONT_RATIO: 0.1,
+  DAY_FONT_RATIO: 0.073,
   /** Day-number inset from the cell's top-left, as a fraction of the font — matches DayCell. */
   DAY_PAD_RATIO: 0.28,
 } as const;

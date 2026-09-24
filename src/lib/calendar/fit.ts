@@ -1,5 +1,5 @@
-// Shared cell-fit model, ported verbatim from /preview/interactive. Pure math: given
-// the available box + measured chrome heights, decide the day-cell width so the 7:6
+// Shared cell-fit model, ported from /preview/interactive. Pure math: given
+// the available box + measured chrome heights, decide the day-cell width so the 8:5
 // cells fill the binding dimension (width on phone-portrait, height on desktop-
 // landscape), the 6 rows never scroll vertically, and leftover space becomes
 // symmetric margins. Tiny cells on short/landscape viewports are acceptable — the
@@ -13,13 +13,16 @@ export const CLOSEUP_DIVISOR = 2.5; // columns visible at rest in close-up
 export const FULL_DIVISOR = 7; // full-month shows all 7 columns
 
 /**
- * Cells keep a fixed 7:6 (width:height) ratio — and the M6 day page is that same cell
+ * Cells keep a fixed 8:5 (width:height) ratio — and the M6 day page is that same cell
  * zoomed, so this one ratio is the coordinate box every stamp is normalized to.
+ *
+ * 8:5 (was 7:6 until the Instagram addendum, M9-INSTAGRAM-PLAN decision 1) so a month lays out
+ * on a 2160×1350 two-photo Instagram carousel with the PNG still matching the screen.
  */
-export const CELL_ASPECT_RATIO = 7 / 6;
+export const CELL_ASPECT_RATIO = 8 / 5;
 
 /** The CSS `aspect-ratio` form of {@link CELL_ASPECT_RATIO}. */
-export const CELL_ASPECT = "7 / 6";
+export const CELL_ASPECT = "8 / 5";
 
 export type FitMetrics = {
   /** Available box width (px). */
@@ -62,7 +65,7 @@ export function computeCellW(view: CalendarView, m: FitMetrics): number {
   // Top gutter is untouched (it sits above the title); the bottom one absorbs the bottom ring.
   const usableH = m.availH - GUTTER - Math.max(GUTTER, frameH);
   const overhead = m.titleH + TITLE_GRID_GAP + m.headerH + frameH;
-  const heightBoundW = ((usableH - overhead) / 6) * (7 / 6);
+  const heightBoundW = ((usableH - overhead) / 6) * CELL_ASPECT_RATIO;
   const divisor = view === "full-month" ? FULL_DIVISOR : CLOSEUP_DIVISOR;
   const widthBoundW = usableW / divisor;
   return Math.max(0, Math.floor(Math.min(widthBoundW, heightBoundW)));

@@ -6,7 +6,7 @@
 // the scrim around the page *is* the peeking-neighbours decoration (decision 20): it is not
 // navigable and it loads no new images.
 //
-// The page IS the 7:6 calendar cell zoomed (CELL_ASPECT — reused, never re-invented), so the
+// The page IS the 8:5 calendar cell zoomed (CELL_ASPECT — reused, never re-invented), so the
 // cell's mini-composition and this page are the same `stampBoxes()` at two pixel sizes. It
 // FLIP-animates out of the tapped cell and NEVER waits on that animation.
 
@@ -35,7 +35,7 @@ function prefersReducedMotion(): boolean {
   );
 }
 
-/** The largest 7:6 page that fits the given box. */
+/** The largest 8:5 page that fits the given box. */
 function fitPage(w: number, h: number): { w: number; h: number } {
   const byWidth = { w, h: w / PAGE_ASPECT };
   return byWidth.h <= h ? byWidth : { w: h * PAGE_ASPECT, h };
@@ -80,7 +80,7 @@ export function DayPage({
     [stamps, aspects, pageBox.w],
   );
 
-  // Measure the page: the largest 7:6 box inside the viewport inset (the inset is what leaves
+  // Measure the page: the largest 8:5 box inside the viewport inset (the inset is what leaves
   // the calendar peeking around it).
   useLayoutEffect(() => {
     const measure = () =>
