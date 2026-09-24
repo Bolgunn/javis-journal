@@ -9,7 +9,10 @@ export type CalendarView = "close-up" | "full-month";
 
 export const GUTTER = 24; // minimum breathing room around the calendar
 export const TITLE_GRID_GAP = 12; // matches the gap-3 between title and calendar body
-export const CLOSEUP_DIVISOR = 2.5; // columns visible at rest in close-up
+// Columns visible at rest in close-up. 1.8 (was 2.5 at 7:6): at 8:5 a phone is height-bound
+// again at ~1.8 days across, so the close-up fills the screen instead of stopping two-thirds
+// down it (M9-INSTAGRAM-PLAN decision 2).
+export const CLOSEUP_DIVISOR = 1.8;
 export const FULL_DIVISOR = 7; // full-month shows all 7 columns
 
 /**
@@ -50,8 +53,9 @@ export type FitMetrics = {
  *
  *  • **Left, right and bottom are free.** Those ring edges ARE the block's outer edge, so the
  *    inset from the viewport becomes `max(GUTTER, frame)`, never `GUTTER + frame`. Every ring is
- *    ≤ 24px at phone scale, so `cellW` on a phone is bit-identical with and without a frame.
- *    This is "never fights her", and it is the assertion that would regress silently.
+ *    ≤ 24px at phone scale, so a width-bound `cellW` (full-month on a phone) is bit-identical
+ *    with and without a frame. (Since the 8:5 cells the phone close-up is height-bound, so there
+ *    the top edge below costs it a couple of px.)
  *
  *  • **The top edge is charged.** It is the one ring edge NOT at the boundary — the month title
  *    sits above it — so there is no gutter there to overhang into, and `frameH` joins the height
