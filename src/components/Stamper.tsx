@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { playCut, unlockAudio } from "@/lib/audio/cut-sound";
 import { ImagePipelineError } from "@/lib/image/process";
 import { bakeStamp } from "@/lib/stamp/bake";
 import { decodeForCutter } from "@/lib/stamp/decode";
@@ -85,8 +86,10 @@ export function Stamper({ file, onConfirm, onCancel }: StamperProps) {
   const [phase, setPhase] = useState<Phase>("decoding");
   const [busy, setBusy] = useState(false);
   const [ejecting, setEjecting] = useState(false);
+  const [ejectUrl, setEjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const ejectUrlRef = useRef<string | null>(null);
   const bitmapRef = useRef<ImageBitmap | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const machineRef = useRef<HTMLDivElement | null>(null);
@@ -197,11 +200,16 @@ export function Stamper({ file, onConfirm, onCancel }: StamperProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onCancel]);
 
-  // Release the transient bitmap on unmount.
+  // Release the transient bitmap AND the eject thumb's object URL on unmount (the eject <img>
+  // holds a temporary URL for bake.thumbBlob; the parent swaps the Stamper away on confirm).
   useEffect(
     () => () => {
       bitmapRef.current?.close();
       bitmapRef.current = null;
+      if (ejectUrlRef.current) {
+        URL.revokeObjectURL(ejectUrlRef.current);
+        ejectUrlRef.current = null;
+      }
     },
     [],
   );
@@ -243,15 +251,39 @@ export function Stamper({ file, onConfirm, onCancel }: StamperProps) {
   const onCut = useCallback(async () => {
     const bmp = bitmapRef.current;
     if (!bmp || busy || phase !== "ready") return;
+    // Unlock audio while we are still inside the drawer-press gesture (this runs synchronously
+    // before the first await), so the snip that fires after the async bake is not autoplay-blocked.
+    unlockAudio();
     setBusy(true);
     setError(null);
     try {
       const bake = await bakeStamp(bmp, MASKS[maskIndex], controller.getState());
       const id = await ingestStamp(bake);
-      // The stamp emerges from the slot into the drawer — a beat, never a blocker. (M10's
-      // flourish hangs off exactly this seam and must degrade gracefully.)
+      // We only reach here AFTER the bake resolved, so the snip is structurally impossible to
+      // hear over a failed bake (decision 4 — fail-closed). Fire-and-forget: it never delays us.
+      playCut();
+
+      // prefers-reduced-motion → skip the eject beat entirely, straight to confirm (as the FLIP
+      // zoom already does). No object URL, no delay.
+      const reduced =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (reduced) {
+        onConfirm(id, MASKS[maskIndex].id);
+        return;
+      }
+
+      // Emerge the REAL baked stamp (its true WebP-alpha shape — heart/cloud corners transparent),
+      // not a blank square. A temporary object URL, revoked once the beat is done.
+      const url = URL.createObjectURL(bake.thumbBlob);
+      ejectUrlRef.current = url;
+      setEjectUrl(url);
       setEjecting(true);
       await new Promise((r) => setTimeout(r, EJECT_MS));
+      if (ejectUrlRef.current) {
+        URL.revokeObjectURL(ejectUrlRef.current);
+        ejectUrlRef.current = null;
+      }
       onConfirm(id, MASKS[maskIndex].id);
     } catch (err) {
       setEjecting(false);
@@ -366,11 +398,17 @@ export function Stamper({ file, onConfirm, onCancel }: StamperProps) {
         ) : null}
 
         {/* The cut stamp emerging from the slot into the drawer — that is what the slot and the
-            drawer are FOR. A beat, never a blocker. */}
-        {ejecting ? (
-          <div
+            drawer are FOR. A beat, never a blocker. It is now the REAL baked thumb (its own
+            transparent WebP-alpha corners), so she watches HER stamp drop into the drawer.
+            object-contain keeps a non-square shape (heart/cloud) inside the little emerging box. */}
+        {ejecting && ejectUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={ejectUrl}
+            alt=""
             aria-hidden
-            className="pointer-events-none absolute z-[15] rounded-sm bg-paper shadow-sm"
+            draggable={false}
+            className="pointer-events-none absolute z-[15] select-none object-contain drop-shadow-sm"
             style={{
               left: px(SLOT.cx * art.w - STAMP_PX / 2),
               top: px(SLOT.y * art.h),
