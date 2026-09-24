@@ -13,6 +13,7 @@ import {
 } from "@/lib/calendar/month-grid";
 import { useMonthData, useProfile } from "@/lib/db/queries";
 import { placeSticker, setSelectedFrame } from "@/lib/db/mutations";
+import { EDITING_LOCKED_NOTE, editingLocked } from "@/lib/db/preview-guard";
 import { frameBoxInsets, frameScale } from "@/lib/frames/spec";
 import { seedStickers } from "@/lib/sticker/seed";
 import { repairStickerThumbs } from "@/lib/image/repair-sticker-thumbs";
@@ -415,6 +416,15 @@ export function Calendar() {
           onAddStamp={() => setAddingTo(openDay.date)}
           onClose={closeDay}
         />
+      ) : null}
+
+      {/* A PR preview runs against production, so stamp/sticker writes are refused there
+          (preview-guard.ts). Say so, over every overlay, instead of letting a gesture silently
+          snap back. */}
+      {editingLocked() ? (
+        <p className="pointer-events-none fixed inset-x-0 bottom-3 z-[100] mx-auto w-fit rounded-full bg-ink/80 px-3 py-1 text-xs font-semibold text-paper">
+          {EDITING_LOCKED_NOTE}
+        </p>
       ) : null}
     </main>
   );
