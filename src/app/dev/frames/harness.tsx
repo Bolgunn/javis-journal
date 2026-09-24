@@ -99,7 +99,7 @@ export function FramesHarness() {
             {Array.from({ length: 42 }, (_, i) => (
               <div
                 key={i}
-                className="aspect-[7/6] bg-paper p-1 text-[10px] text-muted"
+                className="aspect-[8/5] bg-paper p-1 text-[10px] text-muted"
               >
                 {i + 1}
               </div>

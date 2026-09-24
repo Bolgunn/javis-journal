@@ -5,8 +5,10 @@ import type { GridCell } from "@/lib/calendar/month-grid";
 import type { DayData } from "@/lib/db/queries";
 import { stampBoxes } from "@/lib/day/layout";
 
-/** The day number's size, as a fraction of the cell width — the same weight in both views. */
-const CHIP_FONT_RATIO = 0.1;
+/** The day number's size, as a fraction of the cell width — the same weight in both views.
+ *  (0.1 at the old 7:6 cell; × 35/48 keeps its size relative to the cell's height.) Export's
+ *  `EXPORT.DAY_FONT_RATIO` must match. */
+const CHIP_FONT_RATIO = 0.073;
 /** …but never so small it stops being legible on a cramped landscape phone. */
 const CHIP_MIN_FONT_PX = 7;
 
@@ -14,7 +16,7 @@ const CHIP_MIN_FONT_PX = 7;
  * One day cell: a blank (leading/trailing pad) or a numbered day. When the day has stamps it
  * renders the day's **faithful mini-composition** — every live stamp at its real position,
  * scale and rotation, through the same `stampBoxes()` the day page uses, at 256px-thumb size.
- * The cell and the page are both 7:6 boxes in the same normalized coordinates, so this is one
+ * The cell and the page are both 8:5 boxes in the same normalized coordinates, so this is one
  * layout function at two pixel sizes (and the FLIP zoom has nothing to cross-fade).
  *
  * Today is marked via the `today-bg`/`today-ink` tokens. Javi's birthday (July 18, any year) is

@@ -79,10 +79,10 @@ const stickerOps = (ops: DrawOp[]) =>
   ops.filter((o): o is Extract<DrawOp, { kind: "sticker" }> => o.kind === "sticker");
 
 describe("exportDimensions", () => {
-  test("grid geometry constants are the derived 7:6 box", () => {
-    expect(EXPORT_CELL_H).toBe(216);
+  test("grid geometry constants are the derived 8:5 box", () => {
+    expect(EXPORT_CELL_H).toBe(157.5);
     expect(EXPORT_GRID_W).toBe(1764);
-    expect(EXPORT_GRID_H).toBe(1296);
+    expect(EXPORT_GRID_H).toBe(945);
   });
 
   test.each(FRAMES_ALL)("%s: outer size = grid + ring + mat + margin (+title)", (frame) => {

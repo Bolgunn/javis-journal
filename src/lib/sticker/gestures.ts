@@ -1,5 +1,5 @@
 // The sticker layer's gesture machine — the SAME machine the day page uses (M7 decision 4),
-// injected with the sticker surface: the 49/36 day-grid bbox and the clamps that keep a sticker
+// injected with the sticker surface: the 28/15 day-grid bbox and the clamps that keep a sticker
 // inside it. Nothing about the interaction differs, and that is the point: long-press to select,
 // drag / pinch / twist, 45° on release, one write per gesture.
 
@@ -17,7 +17,7 @@ export {
   type LiveTransform,
 } from "@/lib/gestures/machine";
 
-/** The day-grid bbox: a 49/36 box, with a sticker clamped fully inside it at every rotation. */
+/** The day-grid bbox: a 28/15 box (GRID_ASPECT), with a sticker clamped fully inside it at every rotation. */
 const STICKER_SURFACE: Surface<StickerBox> = {
   aspect: GRID_ASPECT,
   clampScale: (scale, aspect, rotationDeg) => clampScale(scale, aspect, rotationDeg),

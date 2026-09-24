@@ -7,7 +7,8 @@
 //     that already exists IDENTICALLY in both calendar views. It is the only rect that survives
 //     a close-up ↔ full-month switch, and it is the rect M9's PNG export rasterizes.
 //   - Its aspect therefore FALLS OUT of the cell's and is never hardcoded:
-//     (7·cellW) / (6·cellH) = 7 / (6/CELL_ASPECT) = CELL_ASPECT² = 49/36.
+//     (7·cellW) / (6·cellH) = (7/6)·CELL_ASPECT = 28/15 at 8:5. (At the old 7:6 cell this
+//     happened to equal CELL_ASPECT² = 49/36 — a coincidence of 7 columns × 6 rows, not a rule.)
 //   - `pos_x`/`pos_y` ∈ [0,1] are the sticker's CENTER, as fractions of the grid's width and
 //     height — the same center-based semantics as a stamp.
 //   - `scale` is the sticker's WIDTH as a fraction of the GRID's width (so DEFAULT_SCALE = 1/7
@@ -26,7 +27,7 @@ import { live, maxLayer } from "@/lib/gestures/layers";
 export type { Point };
 
 /** The day-grid bbox's aspect (width / height) — DERIVED from the cell's, never re-invented. */
-export const GRID_ASPECT = CELL_ASPECT_RATIO * CELL_ASPECT_RATIO; // 49/36
+export const GRID_ASPECT = (7 / 6) * CELL_ASPECT_RATIO; // 7 columns × 6 rows of cells = 28/15
 
 export const STICKER = {
   /** A new sticker enters about one day cell wide (1 of the grid's 7 columns). */
@@ -60,7 +61,7 @@ export type StickerPlacement = {
 const clamp = (v: number, lo: number, hi: number): number =>
   lo > hi ? (lo + hi) / 2 : v < lo ? lo : v > hi ? hi : v;
 
-/** The grid in grid-width units: 1 wide, this tall (36/49). */
+/** The grid in grid-width units: 1 wide, this tall (15/28). */
 const GRID_H_U = 1 / GRID_ASPECT;
 
 /** Normalized (pos_x, pos_y) → grid-width units. */

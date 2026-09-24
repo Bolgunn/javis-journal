@@ -11,7 +11,7 @@
 //   tap empty   → deselect
 //
 // What differs between the two surfaces is only the BOX the elements live in and the clamps
-// against it (a 7:6 day page; a 49/36 day-grid bbox) — so that is exactly what `Surface`
+// against it (an 8:5 day page; a 28/15 day-grid bbox) — so that is exactly what `Surface`
 // parameterizes. Everything else is identical, and must stay identical.
 //
 // Framework-agnostic: React feeds it pointer events in SURFACE PIXELS and re-renders from

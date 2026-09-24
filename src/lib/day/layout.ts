@@ -1,6 +1,6 @@
 // The ONE layout function shared by the day page, the calendar cell's mini-composition, and
 // (later, M9) the PNG export: normalized stamp rows -> positioned pixel boxes. Because the cell
-// and the page are the same 7:6 box in the same normalized coordinates, this is literally the
+// and the page are the same 8:5 box in the same normalized coordinates, this is literally the
 // same composition at two pixel sizes — which is why the FLIP zoom has nothing to cross-fade.
 //
 // Pure: no React, no Dexie, no DOM.
@@ -25,7 +25,7 @@ export type StampBox = {
   z: number;
 };
 
-/** Page height for a given page width — the 7:6 box, never re-derived elsewhere. */
+/** Page height for a given page width — the 8:5 box, never re-derived elsewhere. */
 export function pageHeight(pageW: number): number {
   return pageW / PAGE_ASPECT;
 }
@@ -63,7 +63,7 @@ export function aspectOf(
 }
 
 /**
- * Compose a day: its live stamps, back-to-front, as pixel boxes inside a `pageW`-wide 7:6 page.
+ * Compose a day: its live stamps, back-to-front, as pixel boxes inside a `pageW`-wide 8:5 page.
  * `scale` is the stamp's width as a fraction of the page width; the height follows from the
  * baked image's own aspect.
  */

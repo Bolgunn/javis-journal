@@ -63,7 +63,7 @@ export type Stamp = {
   image_id: string;
   /** Which shape she cut. Metadata only — the crop is baked into the pixels (ADR-M5). */
   mask_type: MaskType;
-  /** Stamp center, normalized to the 7:6 day page (0..1). */
+  /** Stamp center, normalized to the 8:5 day page (0..1). */
   pos_x: number;
   pos_y: number;
   /** Stamp width as a fraction of the day page's width. */
