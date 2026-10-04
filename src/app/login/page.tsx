@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { GuestButton } from "@/components/auth/GuestButton";
 import { createClient } from "@/lib/supabase/browser";
 
 export default function LoginPage() {
@@ -60,6 +61,7 @@ function LoginCard() {
         >
           {isLoading ? "Signing in..." : "Sign in with Google"}
         </button>
+        <GuestButton />
         {errorMessage ? (
           <p className="text-center text-[0.95rem] leading-snug text-[#9c3b43]">
             {errorMessage}

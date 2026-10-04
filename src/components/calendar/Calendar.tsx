@@ -23,6 +23,7 @@ import { StickerLayer, visibleGridCenter } from "@/components/sticker/StickerLay
 import { StickerTray } from "@/components/sticker/StickerTray";
 import { CalendarMenu } from "./CalendarMenu";
 import { ExportSheet } from "./ExportSheet";
+import { GuestPill } from "./GuestPill";
 import { MonthCloseUp } from "./MonthCloseUp";
 import { MonthFull } from "./MonthFull";
 import { MonthPicker } from "./MonthPicker";
@@ -366,6 +367,7 @@ export function Calendar({ guest = false }: { guest?: boolean }) {
         onToggleView={toggleView}
         onChangeMonth={() => setPickerOpen(true)}
         onDownload={() => setExportOpen(true)}
+        guest={guest}
         selectedFrame={profile.selectedFrame}
         onSetFrame={(frame) => void setSelectedFrame(frame)}
       />
@@ -427,11 +429,14 @@ export function Calendar({ guest = false }: { guest?: boolean }) {
       {/* A PR preview runs against production, so stamp/sticker writes are refused there
           (preview-guard.ts). Say so, over every overlay, instead of letting a gesture silently
           snap back. */}
-      {editingLocked() ? (
+      {/* `!guest` first: on the server `editingLocked()` cannot see the guest cookie, so the
+          prop keeps the server render and the client's in agreement (M11 decision 7). */}
+      {!guest && editingLocked() ? (
         <p className="pointer-events-none fixed inset-x-0 bottom-3 z-[100] mx-auto w-fit rounded-full bg-ink/80 px-3 py-1 text-xs font-semibold text-paper">
           {EDITING_LOCKED_NOTE}
         </p>
       ) : null}
+      {guest ? <GuestPill /> : null}
     </main>
   );
 }
