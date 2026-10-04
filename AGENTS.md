@@ -165,6 +165,31 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
       5 commits on `m10-ship` (cut-sound module + Stamper snip + mute toggle, the long-run tour at
       `/dev/longrun`, the offline hint) sit in **draft PR #6**, rebased and green. Parked on
       purpose — more sound work comes first.
+- [ ] **M11 — Guest mode (US-15)** — *built on `feat/guest-mode`, PR open; Tier-2 (owner, on the
+      PR preview) pending.* A recruiter can try the real app with no account, while it stays
+      structurally impossible for anyone but Javi to write a row or upload an image. **A guest has
+      no Supabase session at all**: `GET /api/auth/guest` sets an unsigned, client-readable
+      `jj_guest=1` cookie (never for a signed-in user) and that is the whole identity; rows carry
+      `GUEST_USER_ID = "guest"`. Not `signInAnonymously` — anonymous users pass
+      `auth.uid() = user_id`. **One seam**, `src/lib/auth/identity.ts` (`isGuest` client-side
+      from `document.cookie`, `isGuestRequest` for the proxy + home page so the two gates cannot
+      drift). Guests get **their own IndexedDB, `"javis-journal-guest"`**, chosen once when
+      `@/lib/db` evaluates — so every guest ↔ signed-in switch is a full navigation, and none of
+      the importers of `db` know guest mode exists. **The transport is off, the write path is
+      not**: `markDirty` still writes the outbox; the engine's `flushNow`/`pullNow`/
+      `startSyncLoop` no-op for guests, `SyncBoot` bootstraps the guest profile row instead of
+      syncing (write-once, never overwrites), and the signed-URL fallbacks (`thumb-url`, the
+      export's `signPaths`) are skipped. **A session always wins**: the proxy clears a guest cookie
+      that rides along with one, and `/api/auth/gate` clears it on sign-in. No seeding/repair of
+      Javi's stickers for guests (empty tray); `editingLocked()` is false for a guest, so **every
+      PR preview is a zero-risk sandbox**. UI: "Try it as a guest" on `/login` + `/denied`, a
+      fixed bottom-centre "Guest · saved on this device only" pill (out of the fit model — above
+      the title it was clipped in height-bound layouts), "Exit guest mode" in the 3-dots menu
+      (clears the cookie only; the guest database stays). **No migration, no policy change, no
+      Dexie bump (still v5), no new dependency.** Verified by **406 vitest tests**, incl. the
+      **no-network canary** (`src/lib/auth/guest-canary.test.ts`: the whole guest flow with a
+      Supabase client that throws on contact — asserted never built). Plan:
+      `plans/M11-PLAN.md`.
 
 ## Stack
 - **Next.js (App Router) + React + TypeScript**, deployed on Vercel.
@@ -188,7 +213,7 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
   (dev-only, fit-to-screen month calendar + theme switcher).
 
 ## Layout
-- `src/app/` — routes (App Router). API routes: `api/auth/gate` (allowlist sign-in gate),
+- `src/app/` — routes (App Router). API routes: `api/auth/gate` (allowlist sign-in gate), `api/auth/guest` (M11 guest entry),
   `api/health` (cron warm-ping).
 - `src/components/` — UI screens (calendar close-up, full-month, day page, stamper, sticker
   picker, 3-dots menu). `src/components/calendar/` — the M4 calendar island (`Calendar`,
@@ -226,7 +251,9 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
 - `src/lib/image/` — image pipeline + stamp cutter (ALG-1/ALG-2). `thumb-url.ts` is the sole
   image-read seam (`getThumbUrls`, ALG-6 object-URL release).
 - `src/lib/supabase/` — browser + server Supabase clients (`@supabase/ssr`).
-- `src/lib/auth/` — allowlist gate helpers + owner-override.
+- `src/lib/auth/` — allowlist gate helpers + owner-override. `identity.ts` — **the guest-mode
+  seam** (M11): `isGuest`/`isGuestRequest`/`GUEST_USER_ID`/`journalDbName`; nothing else reads
+  the `jj_guest` cookie. `guest-bootstrap.ts` — the write-once guest profile row.
 - `src/proxy.ts` — session-refresh + login/home redirect proxy (this Next.js version
   renamed `middleware.ts` → `proxy.ts`; see the banner at the top of this file).
 - `public/frames/` — Pokémon `border-image` frame assets. `public/stickers/` — seeded stickers.

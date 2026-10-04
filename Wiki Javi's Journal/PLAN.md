@@ -337,7 +337,8 @@ graph TD
   owner-override test.
 - **M11 — Guest mode:** US-15. A cookie-only guest identity (no Supabase session), a separate
   `javis-journal-guest` IndexedDB, and the sync transport off. Independent of M10. Plan:
-  `plans/M11-PLAN.md`.
+  `plans/M11-PLAN.md`. Built on `feat/guest-mode`; the "Guest" label sits bottom-centre rather
+  than beside the title (it was clipped there whenever the layout is height-bound).
 
 **Parallelizable:**
 - After **M1**, build **M2** and **M3** in parallel.
