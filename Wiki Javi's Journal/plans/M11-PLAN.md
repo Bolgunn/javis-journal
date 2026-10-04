@@ -208,7 +208,7 @@ Tasks 2 and 3 are independent but small and share the seam, so **build directly*
 - The Tier-2 run on the PR preview (DoD 5), including the dashboard check that nothing was written.
 - Optional: once merged, put the production URL + "Try it as a guest" on the CV.
 
-## As built (2026-10-04, `feat/guest-mode`)
+## As built (2026-10-04, `feat/guest-mode`, PR #11)
 
 The eight decisions stand. Where the build added to or refined them:
 
