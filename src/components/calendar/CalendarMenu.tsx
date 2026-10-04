@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { clearGuestCookie } from "@/lib/auth/identity";
 import type { SelectedFrame } from "@/lib/db/types";
 import { FRAMES, FRAME_IDS } from "@/lib/frames/spec";
 import { frameCss } from "@/lib/frames/style";
@@ -11,6 +12,7 @@ import { createClient } from "@/lib/supabase/browser";
  * The 3-dots menu (US-2/US-3/US-4/US-10/US-12). Live items:
  *   • Toggle full-month view   • Change month   • Download PNG
  *   • Frame: 3 swatches (re-tap the worn one to go bare)    • Logout
+ * For a guest (M11), Logout is "Exit guest mode": it clears the guest cookie and nothing else.
  * A frame change keeps the menu open so the change is visible behind it; the other actions
  * (including Download PNG, which opens the export sheet) close it.
  */
@@ -22,6 +24,7 @@ export function CalendarMenu({
   onDownload,
   selectedFrame,
   onSetFrame,
+  guest = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,10 +33,20 @@ export function CalendarMenu({
   onDownload: () => void;
   selectedFrame: SelectedFrame;
   onSetFrame: (frame: SelectedFrame) => void;
+  guest?: boolean;
 }) {
   const [signingOut, setSigningOut] = useState(false);
 
   if (!open) return null;
+
+  // M11 decision 4: no signOut (there is no session) and no confirm. Only the cookie goes — the
+  // guest database stays, so "Try it as a guest" in this browser finds it again. A full
+  // navigation, so the next page picks its database afresh.
+  function handleExitGuest() {
+    setSigningOut(true);
+    clearGuestCookie();
+    window.location.assign("/login");
+  }
 
   async function handleLogout() {
     setSigningOut(true);
@@ -114,9 +127,15 @@ export function CalendarMenu({
 
         <Divider />
 
-        <MenuButton onClick={handleLogout} disabled={signingOut}>
-          {signingOut ? "Logging out…" : "Logout"}
-        </MenuButton>
+        {guest ? (
+          <MenuButton onClick={handleExitGuest} disabled={signingOut}>
+            Exit guest mode
+          </MenuButton>
+        ) : (
+          <MenuButton onClick={handleLogout} disabled={signingOut}>
+            {signingOut ? "Logging out…" : "Logout"}
+          </MenuButton>
+        )}
       </div>
     </div>
   );

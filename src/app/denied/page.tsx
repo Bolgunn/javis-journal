@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { GuestButton } from "@/components/auth/GuestButton";
+
 export default function DeniedPage() {
   return (
     <main className="flex min-h-[100svh] items-center justify-center p-6">
@@ -16,6 +18,9 @@ export default function DeniedPage() {
         <p className="text-base leading-relaxed text-muted">
           This account is not allowed to continue.
         </p>
+        <div className="w-full">
+          <GuestButton />
+        </div>
         <Link
           className="font-semibold text-[#425f58] underline underline-offset-[3px]"
           href="/login"
