@@ -252,6 +252,16 @@ As Javi, I want cutting a stamp to feel satisfying, so that stamping is a little
 - Given the cut, when it plays, then a cutting sound plays, respecting the device's silent/mute setting.
 - Given any flourish, when it runs, then it never blocks or delays the placement/save (last-mile, degrades gracefully).
 
+### US-15 — Guest mode (try it without an account)
+As a visitor (e.g. a recruiter reading the owner's CV), I want to try the journal as a guest, so that I can use the real app without an account while nothing I do ever reaches Javi's database.
+
+**Acceptance criteria:**
+- Given the login or access-denied page, when a visitor taps "Try it as a guest", then they reach the calendar with no Google account.
+- Given guest mode, when they add photos, cut stamps, place stickers, change settings or export a PNG, then everything works and survives a reload, stored only in their browser.
+- Given guest mode, when any of the above runs, then no request is made to Supabase and no row or storage object is created (no session exists, so RLS would reject it anyway).
+- Given a browser that has used guest mode, when Javi signs in with Google there, then she sees only her own journal and none of the guest's data.
+- Given guest mode, when the calendar shows, then a "Guest · saved on this device only" label is visible, and the 3-dots menu offers "Exit guest mode".
+
 ## UI Screens & Flow
 
 Grounded in the annotated Excalidraw mockup at
@@ -303,6 +313,8 @@ graph TD
   M7 --> M10[M10 - Stability gate + polish + ship]
   M8 --> M10
   M9 --> M10
+  M2 --> M11[M11 - Guest mode]
+  M9 --> M11
 ```
 
 **Milestone → user stories:**
@@ -323,6 +335,9 @@ graph TD
 - **M10 — Stability gate + polish + ship:** US-13 (hard gate), US-14 (cozy cutter),
   fireworks, pastel aesthetic, deploy, cross-device verification, seeded account,
   owner-override test.
+- **M11 — Guest mode:** US-15. A cookie-only guest identity (no Supabase session), a separate
+  `javis-journal-guest` IndexedDB, and the sync transport off. Independent of M10. Plan:
+  `plans/M11-PLAN.md`.
 
 **Parallelizable:**
 - After **M1**, build **M2** and **M3** in parallel.
