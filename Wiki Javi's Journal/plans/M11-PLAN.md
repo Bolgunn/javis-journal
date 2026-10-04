@@ -207,3 +207,28 @@ Tasks 2 and 3 are independent but small and share the seam, so **build directly*
 - None in Supabase: no migration, no policy change, no allowlist change.
 - The Tier-2 run on the PR preview (DoD 5), including the dashboard check that nothing was written.
 - Optional: once merged, put the production URL + "Try it as a guest" on the CV.
+
+## As built (2026-10-04, `feat/guest-mode`)
+
+The eight decisions stand. Where the build added to or refined them:
+
+- **The pill is bottom-centre, not beside the title.** Pinned above the title it was clipped
+  whenever the layout is height-bound (a phone's close-up), because the title then shares the top
+  bar's row. It is now `fixed`, `pointer-events-none`, in the slot the preview-lock note uses (the
+  two never show together). Being out of flow, it still cannot touch `titleH`, `cellW` or the
+  export.
+- **"Session wins" is enforced at two more points.** `GET /api/auth/guest` never sets the cookie
+  for a signed-in user (it is linked from `/denied`, which the proxy does not gate), and the proxy
+  clears a `jj_guest` that rides along with a real session. The cookie and a session therefore
+  never coexist, which is what the client's cookie-only DB choice relies on.
+- **One more signed-URL site.** The export's `signPaths` (`src/lib/export/data.ts`) was missing
+  from the decision-5 table; it skips for guests like `thumb-url`. `pullNow` is guarded too, and
+  `seedStickers`/`repairStickerThumbs` refuse for guests themselves, beside the `Calendar` effect.
+- **`guestProfileBootstrap` lives in `src/lib/auth/guest-bootstrap.ts`.** `@/lib/db` imports the
+  identity seam at module load, so the seam cannot import `@/lib/db` back (an import cycle).
+- **`Calendar` takes a `guest` prop** from the home page's server gate, so the pill and the
+  preview-lock note render the same on the server and the client (no hydration mismatch).
+- **The canary** (`src/lib/auth/guest-canary.test.ts`) runs the real ingest, mutations, engine,
+  display seam and `composeMonthPng`. The lowest seams: the image decoder and the canvas
+  rasterizer are mocked, and the stamp bake is given as a ready `BakeResult`. Removing either the
+  engine's `flushNow` guard or `thumb-url`'s guard turns it red.

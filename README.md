@@ -1,3 +1,13 @@
+# Javi's Journal
+
+A phone-first, local-first scrapbook journal: each day of the calendar is a page you decorate
+with photo stamps cut out with a punch machine, plus stickers and Pokémon-style frames. It was built
+as a birthday gift and is locked to one Google account.
+
+**Try it as a guest.** On the login page, tap **Try it as a guest** to use the real app with no
+account. Everything you add stays in your own browser (a separate IndexedDB), and nothing is ever
+sent to the server. Use **Exit guest mode** in the ⋯ menu to leave.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
