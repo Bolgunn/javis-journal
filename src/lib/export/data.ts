@@ -17,6 +17,7 @@ import { monthRange, yearMonthKey } from "@/lib/calendar/month-grid";
 import { db } from "@/lib/db";
 import type { ImageBlobRow } from "@/lib/db/image-types";
 import type { ImageRow, PlacedSticker, Stamp } from "@/lib/db/types";
+import { isGuest } from "@/lib/auth/identity";
 import { createClient } from "@/lib/supabase/browser";
 
 const BUCKET = "images";
@@ -109,6 +110,8 @@ async function signPaths(
   misses: { id: string; path: string }[],
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
+  // M11: a guest's images are only ever local — a miss is skipped like an offline one, never signed.
+  if (isGuest()) return out;
   try {
     const supabase = createClient();
     const { data, error } = await supabase.storage

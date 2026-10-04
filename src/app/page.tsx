@@ -21,5 +21,5 @@ export default async function Home() {
     redirect("/login");
   }
 
-  return <Calendar />;
+  return <Calendar guest={guest} />;
 }

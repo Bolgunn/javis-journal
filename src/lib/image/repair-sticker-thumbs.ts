@@ -13,6 +13,7 @@
 //
 // Safe to run on every boot: a sticker whose thumb is already PNG costs one indexed read.
 
+import { isGuest } from "@/lib/auth/identity";
 import { db } from "@/lib/db";
 import { scheduleFlush } from "@/lib/sync/engine";
 import { markDirty } from "@/lib/sync/outbox";
@@ -22,6 +23,7 @@ import { thumbPath } from "./storage-paths";
 let inFlight: Promise<void> | null = null;
 
 export function repairStickerThumbs(): Promise<void> {
+  if (isGuest()) return Promise.resolve(); // M11 decision 6: nothing to repair for a guest
   if (!inFlight) {
     inFlight = run().finally(() => {
       inFlight = null;

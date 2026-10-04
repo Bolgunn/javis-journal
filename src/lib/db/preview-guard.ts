@@ -9,10 +9,16 @@
 //
 // `NEXT_PUBLIC_VERCEL_ENV` is Vercel's system env var, inlined at build time. It is absent in
 // local dev and tests (so nothing is locked there) unless a test stubs it.
+//
+// M11 decision 7: a guest is never locked. The guard exists because a preview talks to the
+// production database, and a guest cannot reach any database — so every PR preview doubles as a
+// zero-risk sandbox for the real editor. Javi's signed-in session on a preview stays locked.
 
-/** True on a Vercel preview deployment: stamp and sticker writes are refused. */
+import { isGuest } from "@/lib/auth/identity";
+
+/** True on a Vercel preview deployment for a signed-in user: stamp and sticker writes are refused. */
 export function editingLocked(): boolean {
-  return process.env.NEXT_PUBLIC_VERCEL_ENV === "preview";
+  return process.env.NEXT_PUBLIC_VERCEL_ENV === "preview" && !isGuest();
 }
 
 /** The note the UI shows while {@link editingLocked} — and the error a refused cut reports. */

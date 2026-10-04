@@ -60,8 +60,11 @@ function prefersReducedMotion(): boolean {
  * pinch-to-switch gesture, and the ~250ms switch animation. Renders `TopBar`,
  * `MonthTitle`, and the active month view. The 3-dots menu + month picker (and the
  * handlers that change month / week-start / sign out) are wired in T6.
+ *
+ * `guest` (M11) comes from the home page's server gate — the same `isGuestRequest` the proxy
+ * uses — so it is identical on the server render and the client.
  */
-export function Calendar() {
+export function Calendar({ guest = false }: { guest?: boolean }) {
   const [view, setView] = useState<CalendarView>("full-month");
   const [{ year, month }, setYearMonth] = useState<YearMonth>(() =>
     currentYearMonth(),
@@ -240,14 +243,17 @@ export function Calendar() {
   // their transparent pixels black. It re-encodes them to PNG in place; `stickerEpoch` then
   // remounts the layer so the corrected thumbs are re-resolved (the id set didn't change, so the
   // URL cache would otherwise happily keep serving the black ones).
+  //
+  // M11 decision 6: a guest gets neither — their tray starts empty (and Javi's personal sticker
+  // art stays out of the demo); they upload their own through the tray's ＋ tile.
   useEffect(() => {
-    if (!profile.userId) return;
+    if (!profile.userId || guest) return;
     void repairStickerThumbs()
       .then(() => setStickerEpoch((n) => n + 1))
       .finally(() => {
         if (profile.userId) void seedStickers(profile.userId);
       });
-  }, [profile.userId]);
+  }, [profile.userId, guest]);
 
   // The system back gesture closes the day instead of leaving the app: opening a day pushes a
   // history entry, popstate closes it. (Closing from inside the app pops it back off.)
