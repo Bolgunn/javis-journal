@@ -165,7 +165,7 @@ execution plan lands in `Wiki Javi's Journal/plans/M{N}-PLAN.md` (see Methodolog
       5 commits on `m10-ship` (cut-sound module + Stamper snip + mute toggle, the long-run tour at
       `/dev/longrun`, the offline hint) sit in **draft PR #6**, rebased and green. Parked on
       purpose — more sound work comes first.
-- [ ] **M11 — Guest mode (US-15)** — *built on `feat/guest-mode`, PR open; Tier-2 (owner, on the
+- [ ] **M11 — Guest mode (US-15)** — *built on `feat/guest-mode`, PR #11; Tier-2 (owner, on the
       PR preview) pending.* A recruiter can try the real app with no account, while it stays
       structurally impossible for anyone but Javi to write a row or upload an image. **A guest has
       no Supabase session at all**: `GET /api/auth/guest` sets an unsigned, client-readable
