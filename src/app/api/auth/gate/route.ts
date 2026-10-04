@@ -1,4 +1,5 @@
 import { isAllowed } from "@/lib/auth/allowlist";
+import { GUEST_COOKIE, GUEST_COOKIE_CLEAR_OPTIONS } from "@/lib/auth/identity";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -47,5 +48,9 @@ export async function GET(request: NextRequest) {
     return redirectTo("/login?error=oauth", request);
   }
 
-  return redirectTo("/", request);
+  // M11 decision 4 — a real sign-in ends guest mode: clear `jj_guest`, so the client opens her
+  // database, never the guest one. (The guest database itself is left alone.)
+  const response = redirectTo("/", request);
+  response.cookies.set(GUEST_COOKIE, "", GUEST_COOKIE_CLEAR_OPTIONS);
+  return response;
 }

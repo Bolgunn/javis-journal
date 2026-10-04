@@ -2,6 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  GUEST_COOKIE,
+  GUEST_COOKIE_CLEAR_OPTIONS,
+  isGuestRequest,
+} from "@/lib/auth/identity";
+
 type CookieToSet = {
   name: string;
   value: string;
@@ -83,7 +89,22 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && pathname !== "/login") {
+  // M11: a guest (the `jj_guest` cookie, no Supabase session) is let through like a signed-in
+  // user — the pages it reaches render from the visitor's own IndexedDB and can write nothing
+  // server-side. A real session always wins (decision 4): it is checked first, and a guest
+  // cookie riding along with one is cleared, so the client never opens the guest database for a
+  // signed-in user.
+  const guest = !user && isGuestRequest(request.cookies);
+  const clearStaleGuest = Boolean(user) && isGuestRequest(request.cookies);
+
+  const finish = (response: NextResponse): NextResponse => {
+    if (clearStaleGuest) {
+      response.cookies.set(GUEST_COOKIE, "", GUEST_COOKIE_CLEAR_OPTIONS);
+    }
+    return response;
+  };
+
+  if (!user && !guest && pathname !== "/login") {
     return applyAuthCookies(
       NextResponse.redirect(new URL("/login", request.url)),
       authCookiesToSet,
@@ -91,19 +112,21 @@ export async function proxy(request: NextRequest) {
     );
   }
 
-  if (user && pathname === "/login") {
-    return applyAuthCookies(
-      NextResponse.redirect(new URL("/", request.url)),
-      authCookiesToSet,
-      authHeadersToSet,
+  if ((user || guest) && pathname === "/login") {
+    return finish(
+      applyAuthCookies(
+        NextResponse.redirect(new URL("/", request.url)),
+        authCookiesToSet,
+        authHeadersToSet,
+      ),
     );
   }
 
-  return supabaseResponse;
+  return finish(supabaseResponse);
 }
 
 export const config = {
   matcher: [
-    "/((?!api/auth/gate|api/health|denied|_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico)$).*)",
+    "/((?!api/auth/gate|api/auth/guest|api/health|denied|_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico)$).*)",
   ],
 };

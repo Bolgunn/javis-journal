@@ -21,8 +21,19 @@ export const GUEST_DB_NAME = "javis-journal-guest";
 /** The signed-in database, unchanged since M2. */
 export const JOURNAL_DB_NAME = "javis-journal";
 
-/** One year, in seconds — the guest cookie's lifetime. */
-export const GUEST_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+/**
+ * How the server sets the guest cookie (decision 4): readable by the client (`httpOnly: false`,
+ * since {@link isGuest} picks the database from it), `lax`, site-wide, for a year.
+ */
+export const GUEST_COOKIE_OPTIONS = {
+  httpOnly: false,
+  sameSite: "lax",
+  path: "/",
+  maxAge: 60 * 60 * 24 * 365,
+} as const;
+
+/** How the server clears it: the same path, expired now. */
+export const GUEST_COOKIE_CLEAR_OPTIONS = { path: "/", maxAge: 0 } as const;
 
 /**
  * Client: is this browser in guest mode? Reads `jj_guest` from `document.cookie`, which is why
