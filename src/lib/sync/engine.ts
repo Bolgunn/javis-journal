@@ -2,6 +2,7 @@
 // the browser-lifecycle pull cadence. push.ts/pull.ts stay gesture- and timer-agnostic;
 // all scheduling lives here (see M2-PLAN Task 5).
 
+import { isGuest } from "@/lib/auth/identity";
 import { evictOriginals } from "@/lib/image/eviction";
 import { markDirty as outboxMarkDirty, type SyncOperation, type SyncTable } from "./outbox";
 import { flush, PushNetworkError } from "./push";
@@ -54,6 +55,10 @@ export function scheduleFlush(): void {
  * on a network failure it schedules an exponential-backoff retry (outbox stays dirty).
  */
 export async function flushNow(): Promise<void> {
+  // M11 decision 5: a guest has no transport. The outbox still records every change (the write
+  // path is Javi's, byte for byte); it is simply never drained — no push, no backoff timer.
+  if (isGuest()) return;
+
   if (flushRetryTimer) {
     clearTimeout(flushRetryTimer);
     flushRetryTimer = null;
@@ -91,6 +96,8 @@ let pullBackoff = BACKOFF_MIN_MS;
  * for callers that want to force a refresh.
  */
 export async function pullNow(): Promise<void> {
+  if (isGuest()) return; // M11: no transport for a guest (see flushNow)
+
   if (pullRetryTimer) {
     clearTimeout(pullRetryTimer);
     pullRetryTimer = null;
@@ -120,6 +127,9 @@ export async function pullNow(): Promise<void> {
  * and clears timers (called on unmount by SyncBoot).
  */
 export function startSyncLoop(): () => void {
+  // M11: a guest never pulls — no immediate pull, no listeners, no 60s interval.
+  if (isGuest()) return () => {};
+
   void pullNow();
   // Evict any originals that aged past retention while the app was closed.
   void evictOriginals();

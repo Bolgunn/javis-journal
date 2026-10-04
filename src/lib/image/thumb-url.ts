@@ -4,6 +4,7 @@
 
 import { db } from "@/lib/db";
 import type { ImageBlobRow } from "@/lib/db/image-types";
+import { isGuest } from "@/lib/auth/identity";
 import { createClient } from "@/lib/supabase/browser";
 
 export type ThumbHandle = {
@@ -190,6 +191,10 @@ export async function getCloseupUrls(ids: string[]): Promise<Map<string, ThumbHa
 }
 
 async function getSignedUrl(path: string): Promise<string | null> {
+  // M11: a guest's images exist only on this device; a local miss renders blank rather than
+  // firing a Storage request that has no session behind it.
+  if (isGuest()) return null;
+
   const cached = signedCache.get(path);
   if (cached && cached.expiresAt > Date.now()) return cached.url;
 
@@ -207,6 +212,7 @@ async function getSignedUrls(
   misses: { id: string; path: string }[],
 ): Promise<Map<string, string>> {
   const result = new Map<string, string>();
+  if (isGuest()) return result; // M11: no remote fallback for a guest (see getSignedUrl)
   const now = Date.now();
 
   const uncached: { id: string; path: string }[] = [];

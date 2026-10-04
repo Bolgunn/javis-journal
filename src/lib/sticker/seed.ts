@@ -10,6 +10,7 @@
 // Seeding **never blocks the calendar**: offline, a missing file, or a decode failure just
 // no-ops that sticker, and the next mount retries it.
 
+import { isGuest } from "@/lib/auth/identity";
 import { db } from "@/lib/db";
 import { addTrayAsset } from "@/lib/db/mutations";
 import { ingestImage } from "@/lib/image/ingest";
@@ -23,6 +24,8 @@ let inFlight: Promise<void> | null = null;
  * already seeded here (or already pulled from another device) costs one indexed lookup.
  */
 export function seedStickers(userId: string): Promise<void> {
+  // M11 decision 6: a guest's tray starts empty — Javi's sticker art never enters the demo.
+  if (isGuest()) return Promise.resolve();
   if (!inFlight) {
     inFlight = run(userId).finally(() => {
       inFlight = null;

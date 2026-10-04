@@ -8,6 +8,7 @@ import type { ImageBlobRow } from "@/lib/db/image-types";
 import type { ImageRow } from "@/lib/db/types";
 import { ImagePipelineError } from "@/lib/image/process";
 import { stampMainPath, stampThumbPath } from "@/lib/image/storage-paths";
+import { GUEST_USER_ID, isGuest } from "@/lib/auth/identity";
 import { createClient } from "@/lib/supabase/browser";
 import { scheduleFlush } from "@/lib/sync/engine";
 import { markDirty } from "@/lib/sync/outbox";
@@ -57,6 +58,8 @@ export async function ingestStamp(bake: BakeResult): Promise<string> {
 }
 
 async function currentUserId(): Promise<string> {
+  // M11: a guest has no session — the identity is the cookie, and nothing ever asks Supabase.
+  if (isGuest()) return GUEST_USER_ID;
   const supabase = createClient();
   // getSession reads the locally-stored session (no network) so a cut works offline.
   const { data, error } = await supabase.auth.getSession();

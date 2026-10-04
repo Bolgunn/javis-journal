@@ -20,6 +20,7 @@ import type {
 import { placeStamp } from "@/lib/day/place";
 import type { Point } from "@/lib/gestures/machine";
 import { placeSticker as placeStickerAt } from "@/lib/sticker/place";
+import { GUEST_USER_ID, isGuest } from "@/lib/auth/identity";
 import { createClient } from "@/lib/supabase/browser";
 import { markDirty, scheduleFlush } from "@/lib/sync/engine";
 import { markDirty as outboxMarkDirty } from "@/lib/sync/outbox";
@@ -35,6 +36,8 @@ export async function setStartOfWeek(startOfWeek: number): Promise<void> {
   const existing = await db.profiles.toCollection().first();
 
   let userId = existing?.user_id;
+  // M11: normally unreached for a guest (the boot bootstrap wrote the row), but never ask Supabase.
+  if (!userId && isGuest()) userId = GUEST_USER_ID;
   if (!userId) {
     const supabase = createClient();
     const {
@@ -74,6 +77,7 @@ export async function setSelectedFrame(frame: SelectedFrame): Promise<void> {
   if (existing?.selected_frame === frame) return;
 
   let userId = existing?.user_id;
+  if (!userId && isGuest()) userId = GUEST_USER_ID; // M11 (see setStartOfWeek)
   if (!userId) {
     const supabase = createClient();
     const {
