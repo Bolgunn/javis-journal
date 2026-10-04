@@ -1,5 +1,7 @@
 import Dexie, { type Table } from "dexie";
 
+import { JOURNAL_DB_NAME, journalDbName } from "@/lib/auth/identity";
+
 import type {
   Entry,
   ImageRow,
@@ -22,8 +24,9 @@ export class JournalDB extends Dexie {
   sync_outbox!: Table<SyncOutboxRow, string>;
   sync_meta!: Table<SyncMetaRow, string>;
 
-  constructor() {
-    super("javis-journal");
+  // M11: the IndexedDB name is an argument — guests live in their own database (see `db` below).
+  constructor(name: string = JOURNAL_DB_NAME) {
+    super(name);
 
     this.version(1).stores({
       entries: "id",
@@ -65,4 +68,7 @@ export class JournalDB extends Dexie {
   }
 }
 
-export const db = new JournalDB();
+// Chosen ONCE, at module load (M11-PLAN decision 2): a guest gets "javis-journal-guest", everyone
+// else "javis-journal". Every guest <-> signed-in switch is a full navigation, so this never has to
+// change mid-session, and none of the importers of `db` learn that guest mode exists.
+export const db = new JournalDB(journalDbName());
